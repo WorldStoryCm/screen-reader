@@ -346,6 +346,23 @@ Output:
   - start_idx
   - end_idx
 
+Card creation:
+
+Entry points:
+- from token
+- from full capture
+
+Fields:
+- jp_text (required)
+- reading (manual)
+- meaning (manual)
+
+Rules:
+- no duplicates (hash jp_text)
+- allow edit later
+
+Export:
+- CSV (Anki format)
 
 ## 12. Data model
 

@@ -12,13 +12,20 @@
   "app": {
     "windows": [
       {
-        "title": "screen-reader",
-        "width": 800,
-        "height": 600
+        "title": "Game OCR",
+        "label": "main",
+        "width": 400,
+        "height": 300,
+        "resizable": true,
+        "visible": true
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     }
   },
   "bundle": {
@@ -30,6 +37,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "infoPlist": {
+        "NSScreenCaptureUsageDescription": "Screen reader needs screen recording access to capture screen regions for OCR."
+      }
+    }
   }
 }
