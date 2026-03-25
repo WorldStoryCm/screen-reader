@@ -138,13 +138,13 @@ export default function TagsView() {
                   />
                   <button
                     onClick={handleRename}
-                    className="px-2 py-0.5 text-[10px] bg-green-700 hover:bg-green-600 rounded transition-colors"
+                    className="px-2 py-0.5 text-[14px] bg-green-700 hover:bg-green-600 rounded transition-colors"
                   >
                     Save
                   </button>
                   <button
                     onClick={() => setEditingId(null)}
-                    className="px-2 py-0.5 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
+                    className="px-2 py-0.5 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
                   >
                     Cancel
                   </button>
@@ -154,13 +154,13 @@ export default function TagsView() {
                   <span className="flex-1 text-sm text-neutral-200">{tag.name}</span>
                   <button
                     onClick={() => startEdit(tag)}
-                    className="px-2 py-0.5 text-[10px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded opacity-0 group-hover:opacity-100 transition-all"
+                    className="px-2 py-0.5 text-[14px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded opacity-0 group-hover:opacity-100 transition-all"
                   >
                     Rename
                   </button>
                   <button
                     onClick={() => handleDelete(tag.id)}
-                    className="px-2 py-0.5 text-[10px] bg-red-900/50 hover:bg-red-800/50 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all"
+                    className="px-2 py-0.5 text-[14px] bg-red-900/50 hover:bg-red-800/50 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all"
                   >
                     Delete
                   </button>
@@ -171,7 +171,7 @@ export default function TagsView() {
         )}
       </div>
 
-      <p className="text-[10px] text-neutral-600">
+      <p className="text-[14px] text-neutral-600">
         {tags.length} tag{tags.length !== 1 ? "s" : ""}. Tags are shared between captures and cards.
       </p>
     </div>

@@ -166,7 +166,7 @@ export default function ResultPanel() {
       </div>
 
       {/* Keyboard hints */}
-      <div className="px-3 py-1 border-t border-neutral-800 text-[10px] text-neutral-600">
+      <div className="px-3 py-1 border-t border-neutral-800 text-[14px] text-neutral-600">
         Enter: copy all · R: recapture · Esc: close
       </div>
     </div>

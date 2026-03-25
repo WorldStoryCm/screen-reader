@@ -69,7 +69,7 @@ export default function SettingsView() {
             readOnly
             className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-300"
           />
-          <p className="text-[10px] text-neutral-600 mt-1">
+          <p className="text-[14px] text-neutral-600 mt-1">
             Hotkey editing coming soon
           </p>
         </div>
@@ -99,7 +99,7 @@ export default function SettingsView() {
         <div className="flex items-center justify-between">
           <div>
             <label className="text-xs text-neutral-400">Auto-copy after OCR</label>
-            <p className="text-[10px] text-neutral-600">
+            <p className="text-[14px] text-neutral-600">
               Automatically copy text to clipboard after capture
             </p>
           </div>

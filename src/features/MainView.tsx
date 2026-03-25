@@ -225,9 +225,9 @@ export default function MainView() {
 
   const tabLabels: Record<Tab, string> = {
     capture: "Screen Reader",
-    history: "History",
     cards: "Cards",
     tags: "Tags",
+    history: "History",
     settings: "Settings",
   };
 
@@ -262,7 +262,7 @@ export default function MainView() {
               >
                 {capturing ? "Capturing..." : "Capture"}
               </button>
-              <span className="text-[10px] text-neutral-500">Ctrl+Shift+X</span>
+              <span className="text-[14px] text-neutral-500">Ctrl+Shift+X</span>
 
               {screenshotUrl && (
                 <div className="flex items-center gap-1 ml-auto">
@@ -271,7 +271,7 @@ export default function MainView() {
                   <button onClick={() => doZoom(zoom / 1.25)} className="px-1.5 py-0.5 text-xs bg-neutral-700 hover:bg-neutral-600 rounded" title="Zoom out">-</button>
                   <button
                     onClick={() => { setZoom(calcFit()); setIsFit(true); }}
-                    className={`px-2 py-0.5 text-[10px] rounded ${isFit ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600 text-neutral-300"}`}
+                    className={`px-2 py-0.5 text-[14px] rounded ${isFit ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600 text-neutral-300"}`}
                     title="Fit to screen"
                   >
                     {Math.round(zoom * 100)}%
@@ -337,7 +337,7 @@ export default function MainView() {
               {/* Results */}
               <div className="h-[40%] min-h-[120px] flex flex-col overflow-hidden">
                 <div className="px-3 py-1 bg-neutral-800 border-b border-neutral-700 shrink-0">
-                  <span className="text-[10px] text-neutral-500 font-medium">
+                  <span className="text-[14px] text-neutral-500 font-medium">
                     OCR Results ({results.length}) — click a word to copy
                   </span>
                 </div>
@@ -355,10 +355,10 @@ export default function MainView() {
                               <TokenizedText text={entry.text} />
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
-                              <span className="text-[10px] text-neutral-600">{entry.confidence.toFixed(0)}%</span>
+                              <span className="text-[14px] text-neutral-600">{entry.confidence.toFixed(0)}%</span>
                               <button
                                 onClick={() => copyText(entry.text, i)}
-                                className="px-2 py-0.5 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
+                                className="px-2 py-0.5 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
                               >
                                 {copied === i ? "Copied!" : "Copy All"}
                               </button>

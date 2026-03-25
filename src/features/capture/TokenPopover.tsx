@@ -124,7 +124,7 @@ export default function TokenPopover({
             <p className="text-xs text-neutral-300">{card.meaning}</p>
           )}
           {card.note && (
-            <p className="text-[10px] text-neutral-500 italic">{card.note}</p>
+            <p className="text-[14px] text-neutral-500 italic">{card.note}</p>
           )}
 
           {/* Level selector */}
@@ -136,7 +136,7 @@ export default function TokenPopover({
                 <button
                   key={lv}
                   onClick={() => handleLevelChange(lv)}
-                  className={`flex-1 py-1 text-[10px] font-medium rounded transition-colors ${
+                  className={`flex-1 py-1 text-[14px] font-medium rounded transition-colors ${
                     isActive ? LEVEL_COLORS[lv] : "bg-neutral-900 text-neutral-600 hover:text-neutral-400"
                   }`}
                   title={LEVEL_LABELS[lv]}
@@ -146,14 +146,14 @@ export default function TokenPopover({
               );
             })}
           </div>
-          <p className="text-[9px] text-neutral-600 text-center">
+          <p className="text-[13px] text-neutral-600 text-center">
             {LEVEL_LABELS[getCardLevel(card.status)]}
           </p>
 
           <div className="flex gap-1.5 pt-0.5">
             <button
               onClick={handleCopy}
-              className="px-2 py-1 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
+              className="px-2 py-1 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
@@ -185,13 +185,13 @@ export default function TokenPopover({
             <button
               onClick={handleCreateCard}
               disabled={saving || (!reading && !meaning)}
-              className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded transition-colors"
+              className="px-2 py-1 text-[14px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded transition-colors"
             >
               {saving ? "Saving..." : "Save Card"}
             </button>
             <button
               onClick={() => setShowCreate(false)}
-              className="px-2 py-1 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
+              className="px-2 py-1 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
             >
               Cancel
             </button>
@@ -204,13 +204,13 @@ export default function TokenPopover({
           <div className="flex gap-1.5">
             <button
               onClick={handleCopy}
-              className="px-2 py-1 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
+              className="px-2 py-1 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
             >
               {copied ? "Copied!" : "Copy"}
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="px-2 py-1 text-[10px] bg-blue-600 hover:bg-blue-500 rounded transition-colors"
+              className="px-2 py-1 text-[14px] bg-blue-600 hover:bg-blue-500 rounded transition-colors"
             >
               + Create Card
             </button>
