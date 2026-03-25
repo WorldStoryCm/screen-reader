@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Card, CreateCardInput } from "../../types/card";
+import { getCardLevel, LEVELS, LEVEL_LABELS, LEVEL_COLORS, LEVEL_ROMAN } from "../../types/card";
 import type { Token } from "../../lib/tokenizer";
 
 interface Props {
@@ -88,17 +89,21 @@ export default function TokenPopover({
     }
   }
 
-  const statusColors: Record<string, string> = {
-    known: "bg-green-900/40 text-green-400",
-    learning: "bg-yellow-900/40 text-yellow-400",
-    new: "bg-neutral-700 text-neutral-400",
-  };
+  async function handleLevelChange(level: number) {
+    if (!card) return;
+    try {
+      await invoke("update_card", { id: card.id, status: String(level) });
+      setCard({ ...card, status: String(level) });
+    } catch (err) {
+      console.error("Failed to update level:", err);
+    }
+  }
 
-  // Position popover below the token
+  // Position popover below the token, keep on screen
   const style: React.CSSProperties = {
     position: "fixed",
-    left: Math.max(4, anchorRect.left - 40),
-    top: anchorRect.bottom + 4,
+    left: Math.min(Math.max(4, anchorRect.left - 40), window.innerWidth - 270),
+    top: Math.min(anchorRect.bottom + 4, window.innerHeight - 200),
     zIndex: 100,
   };
 
@@ -111,9 +116,6 @@ export default function TokenPopover({
         <div className="p-3 space-y-2">
           <div className="flex justify-between items-start">
             <span className="text-sm font-medium text-neutral-100">{card.jp_text}</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${statusColors[card.status] || statusColors.new}`}>
-              {card.status}
-            </span>
           </div>
           {card.reading && (
             <p className="text-xs text-neutral-400">{card.reading}</p>
@@ -124,7 +126,31 @@ export default function TokenPopover({
           {card.note && (
             <p className="text-[10px] text-neutral-500 italic">{card.note}</p>
           )}
-          <div className="flex gap-1.5 pt-1">
+
+          {/* Level selector */}
+          <div className="flex gap-0.5">
+            {LEVELS.map((lv) => {
+              const currentLevel = getCardLevel(card.status);
+              const isActive = lv === currentLevel;
+              return (
+                <button
+                  key={lv}
+                  onClick={() => handleLevelChange(lv)}
+                  className={`flex-1 py-1 text-[10px] font-medium rounded transition-colors ${
+                    isActive ? LEVEL_COLORS[lv] : "bg-neutral-900 text-neutral-600 hover:text-neutral-400"
+                  }`}
+                  title={LEVEL_LABELS[lv]}
+                >
+                  {LEVEL_ROMAN[lv]}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[9px] text-neutral-600 text-center">
+            {LEVEL_LABELS[getCardLevel(card.status)]}
+          </p>
+
+          <div className="flex gap-1.5 pt-0.5">
             <button
               onClick={handleCopy}
               className="px-2 py-1 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"

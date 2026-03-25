@@ -94,6 +94,7 @@ pub fn run() {
             db::rename_tag,
             db::delete_tag,
             db::find_card_by_text,
+            db::find_cards_by_texts,
             db::create_card,
             db::update_card,
             db::list_cards,

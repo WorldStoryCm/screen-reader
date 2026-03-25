@@ -21,6 +21,7 @@ pub fn init_db(app: &tauri::App) -> Result<DbState, Box<dyn std::error::Error>> 
 
     let conn = Connection::open(&db_path)?;
     run_migrations(&conn)?;
+    migrate_card_levels(&conn)?;
     seed_tags(&conn)?;
 
     Ok(DbState {
@@ -103,6 +104,18 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+        ",
+    )?;
+    Ok(())
+}
+
+fn migrate_card_levels(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Migrate text statuses to numeric levels: new→1, learning→3, known→5
+    conn.execute_batch(
+        "
+        UPDATE cards SET status = '1' WHERE status = 'new';
+        UPDATE cards SET status = '3' WHERE status = 'learning';
+        UPDATE cards SET status = '5' WHERE status = 'known';
         ",
     )?;
     Ok(())
@@ -454,6 +467,32 @@ pub fn find_card_by_text(state: State<DbState>, text: String) -> Result<Option<C
 }
 
 #[tauri::command]
+pub fn find_cards_by_texts(state: State<DbState>, texts: Vec<String>) -> Result<Vec<Card>, String> {
+    if texts.is_empty() {
+        return Ok(Vec::new());
+    }
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let placeholders: Vec<String> = (1..=texts.len()).map(|i| format!("?{}", i)).collect();
+    let sql = format!(
+        "SELECT id, jp_text, reading, meaning, note, status,
+                source_capture_id, source_text_fragment, created_at, updated_at
+         FROM cards WHERE jp_text IN ({})",
+        placeholders.join(", ")
+    );
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        texts.iter().map(|t| t as &dyn rusqlite::types::ToSql).collect();
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params_ref.as_slice(), card_from_row)
+        .map_err(|e| e.to_string())?;
+    let mut cards: Vec<Card> = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    for card in &mut cards {
+        card.tags = load_card_tags(&conn, &card.id);
+    }
+    Ok(cards)
+}
+
+#[tauri::command]
 pub fn get_setting(state: State<DbState>, key: String) -> Result<Option<String>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let result = conn.query_row(
@@ -551,7 +590,7 @@ pub fn create_card(state: State<DbState>, input: CreateCardInput) -> Result<Card
 
     conn.execute(
         "INSERT INTO cards (id, jp_text, reading, meaning, note, status, source_capture_id, source_text_fragment, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, 'new', ?6, ?7, ?8, ?9)",
+         VALUES (?1, ?2, ?3, ?4, ?5, '1', ?6, ?7, ?8, ?9)",
         params![id, input.jp_text, input.reading, input.meaning, input.note, input.source_capture_id, input.source_text_fragment, now, now],
     ).map_err(|e| e.to_string())?;
 
@@ -568,7 +607,7 @@ pub fn create_card(state: State<DbState>, input: CreateCardInput) -> Result<Card
         reading: input.reading,
         meaning: input.meaning,
         note: input.note,
-        status: "new".to_string(),
+        status: "1".to_string(),
         source_capture_id: input.source_capture_id,
         source_text_fragment: input.source_text_fragment,
         created_at: now.clone(),

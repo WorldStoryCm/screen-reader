@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import type { Card, CreateCardInput, CardStatus } from "../../types/card";
+import type { Card, CreateCardInput } from "../../types/card";
+import { getCardLevel, LEVELS, LEVEL_LABELS, LEVEL_COLORS, LEVEL_ROMAN } from "../../types/card";
 import type { Tag } from "../../types/capture";
-
-const STATUSES: CardStatus[] = ["new", "learning", "known"];
 
 export default function CardsView() {
   const [cards, setCards] = useState<Card[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Card | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
+  const [filterLevel, setFilterLevel] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -21,7 +20,7 @@ export default function CardsView() {
       const list = await invoke<Card[]>("list_cards", {
         limit: 200,
         offset: 0,
-        statusFilter: filterStatus,
+        statusFilter: filterLevel,
         tag: filterTag,
         search: search || null,
       });
@@ -31,7 +30,7 @@ export default function CardsView() {
     } finally {
       setLoading(false);
     }
-  }, [filterTag, filterStatus, search]);
+  }, [filterTag, filterLevel, search]);
 
   useEffect(() => {
     invoke<Tag[]>("list_tags").then(setAllTags).catch(console.error);
@@ -51,9 +50,9 @@ export default function CardsView() {
     }
   }
 
-  async function handleStatusChange(card: Card, newStatus: string) {
-    await invoke("update_card", { id: card.id, status: newStatus });
-    const updated = { ...card, status: newStatus };
+  async function handleLevelChange(card: Card, newLevel: number) {
+    await invoke("update_card", { id: card.id, status: String(newLevel) });
+    const updated = { ...card, status: String(newLevel) };
     setCards((prev) => prev.map((c) => (c.id === card.id ? updated : c)));
     if (selected?.id === card.id) setSelected(updated);
   }
@@ -116,31 +115,31 @@ export default function CardsView() {
               + New
             </button>
           </div>
-          <div className="flex gap-1 overflow-x-auto flex-wrap">
+          <div className="flex gap-1 overflow-x-auto scrollbar-visible">
             <button
-              onClick={() => { setFilterStatus(null); setFilterTag(null); }}
-              className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors ${
-                !filterStatus && !filterTag ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
+              onClick={() => { setFilterLevel(null); setFilterTag(null); }}
+              className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors shrink-0 ${
+                !filterLevel && !filterTag ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
               }`}
             >
               All
             </button>
-            {STATUSES.map((s) => (
+            {LEVELS.map((lv) => (
               <button
-                key={s}
-                onClick={() => { setFilterStatus(s); setFilterTag(null); }}
-                className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap capitalize transition-colors ${
-                  filterStatus === s ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
+                key={lv}
+                onClick={() => { setFilterLevel(String(lv)); setFilterTag(null); }}
+                className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors shrink-0 ${
+                  filterLevel === String(lv) ? LEVEL_COLORS[lv] : "bg-neutral-800 text-neutral-400"
                 }`}
               >
-                {s}
+                {LEVEL_ROMAN[lv]}
               </button>
             ))}
             {allTags.slice(0, 6).map((tag) => (
               <button
                 key={tag.id}
-                onClick={() => { setFilterTag(tag.name); setFilterStatus(null); }}
-                className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors ${
+                onClick={() => { setFilterTag(tag.name); setFilterLevel(null); }}
+                className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors shrink-0 ${
                   filterTag === tag.name ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
                 }`}
               >
@@ -155,32 +154,31 @@ export default function CardsView() {
           {cards.length === 0 ? (
             <div className="p-4 text-neutral-500 text-sm text-center">No cards yet</div>
           ) : (
-            cards.map((card) => (
-              <div
-                key={card.id}
-                onClick={() => setSelected(card)}
-                className={`p-3 border-b border-neutral-800 cursor-pointer transition-colors ${
-                  selected?.id === card.id ? "bg-neutral-800" : "hover:bg-neutral-800/50"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <span className="text-sm font-medium text-neutral-200">{card.jp_text}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded capitalize ${
-                    card.status === "known" ? "bg-green-900/40 text-green-400" :
-                    card.status === "learning" ? "bg-yellow-900/40 text-yellow-400" :
-                    "bg-neutral-700 text-neutral-400"
-                  }`}>
-                    {card.status}
-                  </span>
+            cards.map((card) => {
+              const level = getCardLevel(card.status);
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => setSelected(card)}
+                  className={`p-3 border-b border-neutral-800 cursor-pointer transition-colors ${
+                    selected?.id === card.id ? "bg-neutral-800" : "hover:bg-neutral-800/50"
+                  }`}
+                >
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-medium text-neutral-200">{card.jp_text}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${LEVEL_COLORS[level]}`}>
+                      {LEVEL_ROMAN[level]}
+                    </span>
+                  </div>
+                  {card.reading && (
+                    <p className="text-xs text-neutral-400 mt-0.5">{card.reading}</p>
+                  )}
+                  {card.meaning && (
+                    <p className="text-xs text-neutral-500 mt-0.5">{card.meaning}</p>
+                  )}
                 </div>
-                {card.reading && (
-                  <p className="text-xs text-neutral-400 mt-0.5">{card.reading}</p>
-                )}
-                {card.meaning && (
-                  <p className="text-xs text-neutral-500 mt-0.5">{card.meaning}</p>
-                )}
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -196,7 +194,7 @@ export default function CardsView() {
         ) : selected ? (
           <CardDetail
             card={selected}
-            onStatusChange={(s) => handleStatusChange(selected, s)}
+            onLevelChange={(lv) => handleLevelChange(selected, lv)}
             onSave={(field, value) => handleSaveEdit(selected, field, value)}
             onDelete={() => handleDelete(selected.id)}
           />
@@ -286,15 +284,17 @@ function CardForm({
 // --- Card Detail (view/edit) ---
 function CardDetail({
   card,
-  onStatusChange,
+  onLevelChange,
   onSave,
   onDelete,
 }: {
   card: Card;
-  onStatusChange: (status: string) => void;
+  onLevelChange: (level: number) => void;
   onSave: (field: string, value: string) => void;
   onDelete: () => void;
 }) {
+  const level = getCardLevel(card.status);
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex justify-between items-center">
@@ -310,17 +310,22 @@ function CardDetail({
       <EditableField label="Meaning" value={card.meaning} onSave={(v) => onSave("meaning", v)} />
       <EditableField label="Note" value={card.note || ""} onSave={(v) => onSave("note", v)} multiline />
 
-      {/* Status */}
+      {/* Level */}
       <div>
-        <label className="block text-[10px] text-neutral-500 mb-1">Status</label>
+        <label className="block text-[10px] text-neutral-500 mb-1">Level</label>
         <div className="flex gap-1">
-          {STATUSES.map((s) => (
-            <button key={s} onClick={() => onStatusChange(s)}
-              className={`px-3 py-1 text-xs rounded capitalize transition-colors ${
-                card.status === s ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-              }`}>{s}</button>
+          {LEVELS.map((lv) => (
+            <button key={lv} onClick={() => onLevelChange(lv)}
+              className={`flex-1 py-1.5 text-[10px] rounded transition-colors ${
+                level === lv ? LEVEL_COLORS[lv] : "bg-neutral-800 text-neutral-500 hover:text-neutral-300"
+              }`}
+              title={LEVEL_LABELS[lv]}
+            >
+              {LEVEL_ROMAN[lv]}
+            </button>
           ))}
         </div>
+        <p className="text-[10px] text-neutral-600 mt-1">{LEVEL_LABELS[level]}</p>
       </div>
 
       {/* Tags */}
