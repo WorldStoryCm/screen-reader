@@ -1,82 +1,28 @@
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
-use xcap::Monitor;
+use tauri::{AppHandle, Manager};
 
-/// Step 1: Take a full screenshot, then open the overlay with that screenshot as background.
+/// Take a full screenshot of the active screen and return the file path.
+/// Uses macOS `screencapture` which correctly handles Spaces/virtual desktops.
 #[tauri::command]
-pub fn open_capture_overlay(app: AppHandle) -> Result<(), String> {
-    eprintln!("[capture] open_capture_overlay called");
+pub fn capture_screen() -> Result<String, String> {
+    eprintln!("[capture] capture_screen called");
 
-    // If overlay already exists, close it first
-    if let Some(window) = app.get_webview_window("capture-overlay") {
-        eprintln!("[capture] closing existing overlay");
-        let _ = window.close();
-        std::thread::sleep(std::time::Duration::from_millis(50));
-    }
-
-    // Capture full screen BEFORE showing any overlay
-    eprintln!("[capture] capturing screen...");
-    let monitors = Monitor::all().map_err(|e| {
-        eprintln!("[capture] Monitor::all() failed: {}", e);
-        e.to_string()
-    })?;
-    let monitor = monitors.first().ok_or("No monitor found")?;
-    let full_image = monitor.capture_image().map_err(|e| {
-        eprintln!("[capture] capture_image() failed: {}", e);
-        e.to_string()
-    })?;
-    eprintln!("[capture] screen captured: {}x{}", full_image.width(), full_image.height());
-
-    // Save full screenshot to temp location
     let temp_dir = std::env::temp_dir().join("game-ocr");
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
     let temp_path = temp_dir.join("capture_bg.png");
-    full_image.save(&temp_path).map_err(|e| {
-        eprintln!("[capture] save failed: {}", e);
-        e.to_string()
-    })?;
+
+    // -x = no sound, -C = include cursor, -m = only main/active display
+    let status = std::process::Command::new("screencapture")
+        .args(["-x", "-m", temp_path.to_str().unwrap()])
+        .status()
+        .map_err(|e| format!("Failed to run screencapture: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("screencapture exited with: {}", status));
+    }
+
     eprintln!("[capture] saved to {:?}", temp_path);
-
-    // Create fullscreen overlay window
-    let _window = WebviewWindowBuilder::new(
-        &app,
-        "capture-overlay",
-        WebviewUrl::App("/#/capture".into()),
-    )
-    .title("Capture")
-    .fullscreen(true)
-    .decorations(false)
-    .always_on_top(true)
-    .skip_taskbar(true)
-    .build()
-    .map_err(|e| {
-        eprintln!("[capture] window build failed: {}", e);
-        e.to_string()
-    })?;
-
-    eprintln!("[capture] overlay window created");
-    Ok(())
-}
-
-#[tauri::command]
-pub fn close_capture_overlay(app: AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("capture-overlay") {
-        window.close().map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-/// Get the path to the pre-captured full screenshot.
-#[tauri::command]
-pub fn get_capture_bg_path() -> Result<String, String> {
-    let temp_path = std::env::temp_dir()
-        .join("game-ocr")
-        .join("capture_bg.png");
-    if temp_path.exists() {
-        Ok(temp_path.to_string_lossy().to_string())
-    } else {
-        Err("No capture background found".to_string())
-    }
+    Ok(temp_path.to_string_lossy().to_string())
 }
 
 /// Step 2: Crop the pre-captured screenshot to the selected region and save it.
@@ -108,11 +54,6 @@ pub fn crop_and_save(
     cropped
         .save(&filepath)
         .map_err(|e| format!("Failed to save crop: {}", e))?;
-
-    // Close overlay window
-    if let Some(window) = app.get_webview_window("capture-overlay") {
-        let _ = window.close();
-    }
 
     Ok(filepath.to_string_lossy().to_string())
 }

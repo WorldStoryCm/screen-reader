@@ -14,8 +14,8 @@
       {
         "title": "Game OCR",
         "label": "main",
-        "width": 400,
-        "height": 300,
+        "width": 900,
+        "height": 700,
         "resizable": true,
         "visible": true
       }
@@ -38,10 +38,8 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "macOS": {
-      "infoPlist": {
-        "NSScreenCaptureUsageDescription": "Screen reader needs screen recording access to capture screen regions for OCR."
-      }
+    "resources": {
+      "bin/vision_ocr": "bin/vision_ocr"
     }
   }
 }

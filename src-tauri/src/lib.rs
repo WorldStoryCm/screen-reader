@@ -48,7 +48,9 @@ pub fn run() {
                         }
                     }
                     "capture" => {
-                        let _ = capture::open_capture_overlay(app.clone());
+                        // Tray capture: emit event to frontend
+                        use tauri::Emitter;
+                        let _ = app.emit("trigger-capture", ());
                     }
                     "quit" => {
                         app.exit(0);
@@ -77,9 +79,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            capture::open_capture_overlay,
-            capture::close_capture_overlay,
-            capture::get_capture_bg_path,
+            capture::capture_screen,
             capture::crop_and_save,
             ocr::run_ocr,
             db::save_capture,

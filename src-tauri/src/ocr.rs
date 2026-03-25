@@ -19,45 +19,32 @@ struct OcrRequest {
 }
 
 pub struct OcrState {
-    python_path: Mutex<String>,
-    script_path: Mutex<String>,
+    vision_binary_path: Mutex<String>,
 }
 
 impl OcrState {
     pub fn new() -> Self {
         Self {
-            python_path: Mutex::new("python3".to_string()),
-            script_path: Mutex::new(String::new()),
+            vision_binary_path: Mutex::new(String::new()),
         }
     }
 }
 
-pub fn find_ocr_script(app: &tauri::App) -> String {
+fn find_vision_binary(app: &tauri::App) -> Option<String> {
     let resource_dir = app.path().resource_dir().unwrap_or_default();
+    let dev_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let dev_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap_or(std::path::Path::new("."))
-        .to_path_buf();
-
-    let candidates: Vec<std::path::PathBuf> = vec![
-        resource_dir.join("python/ocr_service/ocr_service.py"),
-        std::env::current_dir()
-            .unwrap_or_default()
-            .join("python/ocr_service/ocr_service.py"),
-        dev_root.join("python/ocr_service/ocr_service.py"),
+    let candidates = vec![
+        resource_dir.join("bin/vision_ocr"),
+        dev_root.join("bin/vision_ocr"),
     ];
 
     for candidate in &candidates {
         if candidate.exists() {
-            return candidate.to_string_lossy().to_string();
+            return Some(candidate.to_string_lossy().to_string());
         }
     }
-
-    candidates
-        .last()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_default()
+    None
 }
 
 #[tauri::command]
@@ -66,11 +53,10 @@ pub fn run_ocr(
     image_path: String,
     preset: String,
 ) -> Result<OcrResult, String> {
-    let python_path = state.python_path.lock().map_err(|e| e.to_string())?;
-    let script_path = state.script_path.lock().map_err(|e| e.to_string())?;
+    let binary_path = state.vision_binary_path.lock().map_err(|e| e.to_string())?;
 
-    if script_path.is_empty() {
-        return Err("OCR script path not initialized".to_string());
+    if binary_path.is_empty() {
+        return Err("Vision OCR binary not found".to_string());
     }
 
     let request = OcrRequest {
@@ -79,14 +65,15 @@ pub fn run_ocr(
     };
     let request_json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
 
-    // Spawn Python process for this single request
-    let mut child = Command::new(python_path.as_str())
-        .arg(script_path.as_str())
+    eprintln!("[ocr] binary={}", binary_path);
+    eprintln!("[ocr] request: {}", request_json);
+
+    let mut child = Command::new(binary_path.as_str())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn Python OCR process: {}", e))?;
+        .map_err(|e| format!("Failed to spawn Vision OCR process: {}", e))?;
 
     // Write request
     if let Some(ref mut stdin) = child.stdin {
@@ -106,55 +93,55 @@ pub fn run_ocr(
     let mut result_line = String::new();
     for line in reader.lines() {
         let line = line.map_err(|e| format!("Failed to read OCR output: {}", e))?;
+        eprintln!("[ocr] stdout line: {}", line);
         if !line.trim().is_empty() {
             result_line = line;
             break;
         }
     }
 
-    // Wait for process to finish
-    let _ = child.wait();
-
-    if result_line.is_empty() {
-        // Check stderr for errors
-        return Err("OCR process returned no output".to_string());
+    // Wait for process to finish and capture stderr
+    let output = child.wait_with_output().ok();
+    if let Some(ref out) = output {
+        if !out.stderr.is_empty() {
+            let stderr_str = String::from_utf8_lossy(&out.stderr);
+            eprintln!("[ocr] stderr: {}", stderr_str);
+        }
     }
 
-    let result: OcrResult =
-        serde_json::from_str(&result_line).map_err(|e| format!("Failed to parse OCR result: {} — raw: {}", e, result_line))?;
+    if result_line.is_empty() {
+        let stderr_msg = output
+            .as_ref()
+            .map(|o| String::from_utf8_lossy(&o.stderr).to_string())
+            .unwrap_or_default();
+        return Err(format!(
+            "OCR process returned no output. stderr: {}",
+            stderr_msg
+        ));
+    }
+
+    let result: OcrResult = serde_json::from_str(&result_line)
+        .map_err(|e| format!("Failed to parse OCR result: {} — raw: {}", e, result_line))?;
 
     if let Some(ref error) = result.error {
-        return Err(error.clone());
+        if !error.is_empty() {
+            return Err(error.clone());
+        }
     }
 
     Ok(result)
 }
 
-fn find_python(project_root: &std::path::Path) -> String {
-    // Check for venv python first
-    let venv_python = project_root.join("python/.venv/bin/python3");
-    if venv_python.exists() {
-        return venv_python.to_string_lossy().to_string();
-    }
-    "python3".to_string()
-}
-
 pub fn init_ocr_state(app: &tauri::App, state: &OcrState) {
-    let script = find_ocr_script(app);
-
-    // Find project root for venv python
-    let dev_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap_or(std::path::Path::new("."))
-        .to_path_buf();
-    let python = find_python(&dev_root);
-
-    if let Ok(mut path) = state.script_path.lock() {
-        *path = script.clone();
+    match find_vision_binary(app) {
+        Some(path) => {
+            println!("Vision OCR binary: {}", path);
+            if let Ok(mut p) = state.vision_binary_path.lock() {
+                *p = path;
+            }
+        }
+        None => {
+            eprintln!("[ocr] WARNING: Vision OCR binary not found!");
+        }
     }
-    if let Ok(mut path) = state.python_path.lock() {
-        *path = python.clone();
-    }
-    println!("OCR script: {}", script);
-    println!("Python: {}", python);
 }
