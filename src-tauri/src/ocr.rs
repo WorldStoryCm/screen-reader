@@ -19,18 +19,20 @@ struct OcrRequest {
 }
 
 pub struct OcrState {
-    vision_binary_path: Mutex<String>,
+    ocr_binary_path: Mutex<String>,
 }
 
 impl OcrState {
     pub fn new() -> Self {
         Self {
-            vision_binary_path: Mutex::new(String::new()),
+            ocr_binary_path: Mutex::new(String::new()),
         }
     }
 }
 
-fn find_vision_binary(app: &tauri::App) -> Option<String> {
+/// macOS: find the compiled Swift Vision binary.
+#[cfg(target_os = "macos")]
+fn find_ocr_executable(app: &tauri::App) -> Option<(String, Vec<String>)> {
     let resource_dir = app.path().resource_dir().unwrap_or_default();
     let dev_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
@@ -41,9 +43,43 @@ fn find_vision_binary(app: &tauri::App) -> Option<String> {
 
     for candidate in &candidates {
         if candidate.exists() {
-            return Some(candidate.to_string_lossy().to_string());
+            return Some((candidate.to_string_lossy().to_string(), Vec::new()));
         }
     }
+    None
+}
+
+/// Windows: use PowerShell with the bundled OCR script.
+#[cfg(target_os = "windows")]
+fn find_ocr_executable(app: &tauri::App) -> Option<(String, Vec<String>)> {
+    let resource_dir = app.path().resource_dir().unwrap_or_default();
+    let dev_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+
+    let candidates = vec![
+        resource_dir.join("windows/ocr.ps1"),
+        dev_root.join("windows/ocr.ps1"),
+    ];
+
+    for candidate in &candidates {
+        if candidate.exists() {
+            return Some((
+                "powershell".to_string(),
+                vec![
+                    "-NoProfile".to_string(),
+                    "-ExecutionPolicy".to_string(),
+                    "Bypass".to_string(),
+                    "-File".to_string(),
+                    candidate.to_string_lossy().to_string(),
+                ],
+            ));
+        }
+    }
+    None
+}
+
+/// Linux/other: no OCR backend available yet.
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn find_ocr_executable(_app: &tauri::App) -> Option<(String, Vec<String>)> {
     None
 }
 
@@ -53,11 +89,16 @@ pub fn run_ocr(
     image_path: String,
     preset: String,
 ) -> Result<OcrResult, String> {
-    let binary_path = state.vision_binary_path.lock().map_err(|e| e.to_string())?;
+    let binary_info = state.ocr_binary_path.lock().map_err(|e| e.to_string())?;
 
-    if binary_path.is_empty() {
-        return Err("Vision OCR binary not found".to_string());
+    if binary_info.is_empty() {
+        return Err("OCR engine not found".to_string());
     }
+
+    // Parse stored binary info: "cmd\0arg1\0arg2..."
+    let parts: Vec<&str> = binary_info.split('\0').collect();
+    let cmd = parts[0];
+    let extra_args: Vec<&str> = parts[1..].to_vec();
 
     let request = OcrRequest {
         image_path,
@@ -65,22 +106,26 @@ pub fn run_ocr(
     };
     let request_json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
 
-    eprintln!("[ocr] binary={}", binary_path);
+    eprintln!("[ocr] cmd={}, args={:?}", cmd, extra_args);
     eprintln!("[ocr] request: {}", request_json);
 
-    let mut child = Command::new(binary_path.as_str())
+    let mut command = Command::new(cmd);
+    for arg in &extra_args {
+        command.arg(arg);
+    }
+
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("Failed to spawn Vision OCR process: {}", e))?;
+        .map_err(|e| format!("Failed to spawn OCR process: {}", e))?;
 
     // Write request
     if let Some(ref mut stdin) = child.stdin {
         writeln!(stdin, "{}", request_json)
             .map_err(|e| format!("Failed to write to OCR process: {}", e))?;
     }
-    // Close stdin to signal we're done
     drop(child.stdin.take());
 
     // Read response
@@ -133,15 +178,21 @@ pub fn run_ocr(
 }
 
 pub fn init_ocr_state(app: &tauri::App, state: &OcrState) {
-    match find_vision_binary(app) {
-        Some(path) => {
-            println!("Vision OCR binary: {}", path);
-            if let Ok(mut p) = state.vision_binary_path.lock() {
-                *p = path;
+    match find_ocr_executable(app) {
+        Some((cmd, args)) => {
+            // Store as null-separated string: "cmd\0arg1\0arg2"
+            let mut combined = cmd.clone();
+            for arg in &args {
+                combined.push('\0');
+                combined.push_str(arg);
+            }
+            println!("OCR engine: {} {:?}", cmd, args);
+            if let Ok(mut p) = state.ocr_binary_path.lock() {
+                *p = combined;
             }
         }
         None => {
-            eprintln!("[ocr] WARNING: Vision OCR binary not found!");
+            eprintln!("[ocr] WARNING: No OCR engine found for this platform!");
         }
     }
 }

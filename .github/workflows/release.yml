@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: "--target aarch64-apple-darwin"
+            rust_target: aarch64-apple-darwin
+          - platform: macos-latest
+            args: "--target x86_64-apple-darwin"
+            rust_target: x86_64-apple-darwin
+          - platform: windows-latest
+            args: ""
+            rust_target: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frontend dependencies
+        run: bun install
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # macOS: compile Vision OCR Swift binary
+      - name: Build Vision OCR (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p src-tauri/bin
+          swiftc -O -o src-tauri/bin/vision_ocr src-tauri/swift/vision_ocr.swift \
+            -framework Vision -framework AppKit -framework CoreGraphics -framework ImageIO
+
+      # Windows: create bin dir placeholder so resource bundling doesn't fail
+      - name: Prepare Windows build
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path src-tauri/bin | Out-Null
+          # Create a placeholder so the resource entry doesn't fail
+          "placeholder" | Out-File -FilePath src-tauri/bin/vision_ocr -Encoding ascii
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Screen Reader ${{ github.ref_name }}"
+          releaseBody: |
+            ## Download
+            - **Windows**: `.msi` installer or `.exe` setup
+            - **macOS (Apple Silicon)**: `aarch64.dmg`
+            - **macOS (Intel)**: `x86_64.dmg`
+
+            ### Windows note
+            Japanese OCR requires the Japanese language pack:
+            Settings > Time & Language > Language > Add language > Japanese
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}

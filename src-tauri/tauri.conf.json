@@ -39,7 +39,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "bin/vision_ocr": "bin/vision_ocr"
+      "bin/vision_ocr": "bin/vision_ocr",
+      "windows/ocr.ps1": "windows/ocr.ps1"
     }
   }
 }

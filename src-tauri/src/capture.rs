@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 
-/// Take a full screenshot of the active screen and return the file path.
-/// Uses macOS `screencapture` which correctly handles Spaces/virtual desktops.
+/// Take a full screenshot and return the file path.
 #[tauri::command]
 pub fn capture_screen() -> Result<String, String> {
     eprintln!("[capture] capture_screen called");
@@ -11,21 +10,63 @@ pub fn capture_screen() -> Result<String, String> {
     std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
     let temp_path = temp_dir.join("capture_bg.png");
 
-    // -x = no sound, -C = include cursor, -m = only main/active display
+    platform_capture(&temp_path)?;
+
+    eprintln!("[capture] saved to {:?}", temp_path);
+    Ok(temp_path.to_string_lossy().to_string())
+}
+
+/// macOS: uses `screencapture` which correctly handles Spaces/virtual desktops.
+#[cfg(target_os = "macos")]
+fn platform_capture(path: &std::path::Path) -> Result<(), String> {
     let status = std::process::Command::new("screencapture")
-        .args(["-x", "-m", temp_path.to_str().unwrap()])
+        .args(["-x", "-m", path.to_str().unwrap()])
         .status()
         .map_err(|e| format!("Failed to run screencapture: {}", e))?;
 
     if !status.success() {
         return Err(format!("screencapture exited with: {}", status));
     }
-
-    eprintln!("[capture] saved to {:?}", temp_path);
-    Ok(temp_path.to_string_lossy().to_string())
+    Ok(())
 }
 
-/// Step 2: Crop the pre-captured screenshot to the selected region and save it.
+/// Windows: uses xcap to capture the primary monitor.
+#[cfg(target_os = "windows")]
+fn platform_capture(path: &std::path::Path) -> Result<(), String> {
+    use xcap::Monitor;
+    let monitors = Monitor::all().map_err(|e| format!("Failed to list monitors: {}", e))?;
+    let monitor = monitors
+        .into_iter()
+        .find(|m| m.is_primary().unwrap_or(false))
+        .or_else(|| {
+            Monitor::all().ok().and_then(|m| m.into_iter().next())
+        })
+        .ok_or("No monitors found")?;
+    let image = monitor
+        .capture_image()
+        .map_err(|e| format!("Failed to capture screen: {}", e))?;
+    image
+        .save(path)
+        .map_err(|e| format!("Failed to save screenshot: {}", e))?;
+    Ok(())
+}
+
+/// Linux fallback: use xcap.
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+fn platform_capture(path: &std::path::Path) -> Result<(), String> {
+    use xcap::Monitor;
+    let monitors = Monitor::all().map_err(|e| format!("Failed to list monitors: {}", e))?;
+    let monitor = monitors.into_iter().next().ok_or("No monitors found")?;
+    let image = monitor
+        .capture_image()
+        .map_err(|e| format!("Failed to capture screen: {}", e))?;
+    image
+        .save(path)
+        .map_err(|e| format!("Failed to save screenshot: {}", e))?;
+    Ok(())
+}
+
+/// Crop the pre-captured screenshot to the selected region and save it.
 #[tauri::command]
 pub fn crop_and_save(
     app: AppHandle,
@@ -34,7 +75,6 @@ pub fn crop_and_save(
     width: u32,
     height: u32,
 ) -> Result<String, String> {
-    // Load the pre-captured full screenshot
     let temp_path = std::env::temp_dir()
         .join("game-ocr")
         .join("capture_bg.png");
@@ -43,10 +83,8 @@ pub fn crop_and_save(
         .map_err(|e| format!("Failed to open capture: {}", e))?
         .to_rgba8();
 
-    // Crop to selected region
     let cropped = image_crop(&full_image, x, y, width, height)?;
 
-    // Save to app data dir
     let captures_dir = get_captures_dir(&app)?;
     let filename = format!("{}.png", chrono_timestamp());
     let filepath = captures_dir.join(&filename);
