@@ -52,6 +52,14 @@ export default function MainView() {
   const [results, setResults] = useState<CaptureEntry[]>([]);
   const [copied, setCopied] = useState<number | null>(null);
 
+  // Side panel
+  const [panelWidth, setPanelWidth] = useState(200);
+  const [panelSide, setPanelSide] = useState<"left" | "right">("right");
+
+  // Refs for non-passive wheel listener
+  const hasScreenshot = useRef(false);
+  hasScreenshot.current = !!screenshotUrl;
+
   // Hotkey listener
   useEffect(() => {
     const unlisten = listen("trigger-capture", () => handleCapture());
@@ -66,6 +74,35 @@ export default function MainView() {
     ro.observe(c);
     return () => ro.disconnect();
   }, [natW, natH, isFit]);
+
+  // Load panel side preference
+  useEffect(() => {
+    invoke<string | null>("get_setting", { key: "ocr_panel_side" })
+      .then(v => { if (v === "left" || v === "right") setPanelSide(v); })
+      .catch(() => {});
+    const unlisten = listen<string>("panel-side-changed", (e) => {
+      if (e.payload === "left" || e.payload === "right") setPanelSide(e.payload);
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
+
+  // Native wheel listener (non-passive to allow preventDefault)
+  useEffect(() => {
+    if (tab !== "capture") return;
+    const el = containerRef.current;
+    if (!el) return;
+    function onWheel(e: WheelEvent) {
+      if (!hasScreenshot.current) return;
+      e.preventDefault();
+      setZoom(prev => {
+        const next = prev * (e.deltaY > 0 ? 0.9 : 1.1);
+        return Math.min(Math.max(next, 0.05), 5);
+      });
+      setIsFit(false);
+    }
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [tab]);
 
   function calcFit(): number {
     const c = containerRef.current;
@@ -108,13 +145,6 @@ export default function MainView() {
     setIsFit(false);
   }
 
-  function handleWheel(e: React.WheelEvent) {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      doZoom(zoom * (e.deltaY > 0 ? 0.9 : 1.1));
-    }
-  }
-
   // Displayed pixel size
   const dispW = natW * zoom;
   const dispH = natH * zoom;
@@ -128,6 +158,14 @@ export default function MainView() {
   }
 
   function handleMouseDown(e: React.MouseEvent) {
+    // Middle click -> reset to 100%
+    if (e.button === 1) {
+      e.preventDefault();
+      setZoom(1);
+      setIsFit(false);
+      return;
+    }
+    if (e.button !== 0) return;
     if (processing || !screenshotUrl) return;
     e.preventDefault();
     e.stopPropagation();
@@ -216,6 +254,23 @@ export default function MainView() {
     setTimeout(() => setCopied(null), 1500);
   }
 
+  function handleResizeStart(e: React.MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = panelWidth;
+    const side = panelSide;
+    function onMove(ev: MouseEvent) {
+      const delta = side === "right" ? startX - ev.clientX : ev.clientX - startX;
+      setPanelWidth(Math.max(100, Math.min(600, startW + delta)));
+    }
+    function onUp() {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    }
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }
+
   const selRect = region ? {
     left: Math.min(region.startX, region.endX),
     top: Math.min(region.startY, region.endY),
@@ -230,6 +285,49 @@ export default function MainView() {
     history: "History",
     settings: "Settings",
   };
+
+  function renderResultsPanel(side: "left" | "right") {
+    return (
+      <div
+        style={{ width: panelWidth }}
+        className={`flex flex-col shrink-0 overflow-hidden bg-neutral-900 ${
+          side === "left" ? "border-r" : "border-l"
+        } border-neutral-700`}
+      >
+        <div className="px-2 py-1 bg-neutral-800 border-b border-neutral-700 shrink-0">
+          <span className="text-[11px] text-neutral-500 font-medium">
+            OCR Results ({results.length})
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto scrollbar-visible">
+          {results.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-neutral-600 text-[11px] p-2 text-center">
+              Select a region to extract text
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-800">
+              {results.map((entry, i) => (
+                <div key={entry.timestamp} className="px-2 py-1.5 hover:bg-neutral-800/50">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-[10px] text-neutral-600">{entry.confidence.toFixed(0)}%</span>
+                    <button
+                      onClick={() => copyText(entry.text, i)}
+                      className="px-1.5 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors ml-auto"
+                    >
+                      {copied === i ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <div className="text-xs">
+                    <TokenizedText text={entry.text} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100">
@@ -282,14 +380,26 @@ export default function MainView() {
               {!screenshotUrl && error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
             </div>
 
-            {/* Screenshot + Results */}
-            <div className="flex-1 min-h-0 flex flex-col">
-              {/* Screenshot */}
+            {/* Image + side panel */}
+            <div className="flex-1 min-h-0 flex">
+              {panelSide === "left" && (
+                <>
+                  {renderResultsPanel("left")}
+                  <div
+                    className="w-1 bg-neutral-700 hover:bg-blue-500 cursor-col-resize shrink-0 transition-colors"
+                    onMouseDown={handleResizeStart}
+                  />
+                </>
+              )}
+
+              {/* Image area */}
               <div
                 ref={containerRef}
-                className="flex-1 min-h-0 overflow-auto bg-neutral-950 border-b border-neutral-700 scrollbar-visible"
+                className="flex-1 min-w-0 overflow-auto bg-neutral-950 scrollbar-visible"
                 style={{ cursor: screenshotUrl ? "crosshair" : "default" }}
-                onWheel={handleWheel}
+                onMouseDown={(e) => {
+                  if (e.button === 1) { e.preventDefault(); setZoom(1); setIsFit(false); }
+                }}
               >
                 {screenshotUrl ? (
                   <div
@@ -323,7 +433,7 @@ export default function MainView() {
                     )}
                     {!region && !processing && (
                       <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 text-white/70 text-xs px-3 py-1 rounded pointer-events-none z-10">
-                        Drag to select region · Ctrl+Scroll to zoom
+                        Drag to select · Scroll to zoom · Middle-click 100%
                       </div>
                     )}
                   </div>
@@ -334,42 +444,15 @@ export default function MainView() {
                 )}
               </div>
 
-              {/* Results */}
-              <div className="h-[40%] min-h-[120px] flex flex-col overflow-hidden">
-                <div className="px-3 py-1 bg-neutral-800 border-b border-neutral-700 shrink-0">
-                  <span className="text-[14px] text-neutral-500 font-medium">
-                    OCR Results ({results.length}) — click a word to copy
-                  </span>
-                </div>
-                <div className="flex-1 overflow-y-auto scrollbar-visible">
-                  {results.length === 0 ? (
-                    <div className="flex items-center justify-center h-full text-neutral-600 text-sm">
-                      Select a region on the screenshot to extract text
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-neutral-800">
-                      {results.map((entry, i) => (
-                        <div key={entry.timestamp} className="px-3 py-2 hover:bg-neutral-800/50">
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <TokenizedText text={entry.text} />
-                            </div>
-                            <div className="flex items-center gap-1 shrink-0">
-                              <span className="text-[14px] text-neutral-600">{entry.confidence.toFixed(0)}%</span>
-                              <button
-                                onClick={() => copyText(entry.text, i)}
-                                className="px-2 py-0.5 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
-                              >
-                                {copied === i ? "Copied!" : "Copy All"}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              {panelSide === "right" && (
+                <>
+                  <div
+                    className="w-1 bg-neutral-700 hover:bg-blue-500 cursor-col-resize shrink-0 transition-colors"
+                    onMouseDown={handleResizeStart}
+                  />
+                  {renderResultsPanel("right")}
+                </>
+              )}
             </div>
           </div>
         )}

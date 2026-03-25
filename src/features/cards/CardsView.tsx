@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import type { Card, CreateCardInput } from "../../types/card";
@@ -80,6 +80,13 @@ export default function CardsView() {
   async function handleSaveEdit(card: Card, field: string, value: string) {
     await invoke("update_card", { id: card.id, [field]: value });
     const updated = { ...card, [field]: value };
+    setCards((prev) => prev.map((c) => (c.id === card.id ? updated : c)));
+    setSelected(updated);
+  }
+
+  async function handleTagsChange(card: Card, tags: string[]) {
+    await invoke("update_card", { id: card.id, tags });
+    const updated = { ...card, tags };
     setCards((prev) => prev.map((c) => (c.id === card.id ? updated : c)));
     setSelected(updated);
   }
@@ -176,6 +183,13 @@ export default function CardsView() {
                   {card.meaning && (
                     <p className="text-xs text-neutral-500 mt-0.5">{card.meaning}</p>
                   )}
+                  {card.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {card.tags.map((t) => (
+                        <span key={t} className="text-[10px] px-1 py-0 bg-blue-900/40 text-blue-300 rounded">{t}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -194,8 +208,10 @@ export default function CardsView() {
         ) : selected ? (
           <CardDetail
             card={selected}
+            allTags={allTags}
             onLevelChange={(lv) => handleLevelChange(selected, lv)}
             onSave={(field, value) => handleSaveEdit(selected, field, value)}
+            onTagsChange={(tags) => handleTagsChange(selected, tags)}
             onDelete={() => handleDelete(selected.id)}
           />
         ) : (
@@ -204,6 +220,81 @@ export default function CardsView() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// --- Tag Chips Input with Typeahead ---
+function TagChipsInput({
+  selected,
+  allTags,
+  onChange,
+}: {
+  selected: string[];
+  allTags: Tag[];
+  onChange: (tags: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const suggestions = allTags.filter(
+    (t) => !selected.includes(t.name) && t.name.toLowerCase().includes(input.toLowerCase())
+  );
+
+  function add(name: string) {
+    onChange([...selected, name]);
+    setInput("");
+    inputRef.current?.focus();
+  }
+
+  function remove(name: string) {
+    onChange(selected.filter((t) => t !== name));
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Backspace" && !input && selected.length > 0) {
+      remove(selected[selected.length - 1]);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex flex-wrap gap-1 p-1 bg-neutral-800 border border-neutral-700 rounded min-h-[32px] items-center">
+        {selected.map((tag) => (
+          <span key={tag} className="flex items-center gap-1 px-2 py-0.5 text-[11px] bg-blue-600 text-white rounded">
+            {tag}
+            <button type="button" onClick={() => remove(tag)} className="hover:text-red-300 text-[10px] leading-none">
+              &times;
+            </button>
+          </span>
+        ))}
+        <input
+          ref={inputRef}
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          onKeyDown={handleKeyDown}
+          placeholder={selected.length === 0 ? "Add tags..." : ""}
+          className="flex-1 min-w-[60px] bg-transparent text-xs text-neutral-300 outline-none px-1 py-0.5"
+        />
+      </div>
+      {open && suggestions.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full bg-neutral-800 border border-neutral-700 rounded shadow-lg max-h-[120px] overflow-y-auto">
+          {suggestions.map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => add(tag.name)}
+              className="w-full px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700 text-left"
+            >
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -227,10 +318,6 @@ function CardForm({
   const [meaning, setMeaning] = useState("");
   const [note, setNote] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-
-  function toggleTag(name: string) {
-    setTags((prev) => prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]);
-  }
 
   return (
     <div className="p-4 space-y-3">
@@ -257,14 +344,7 @@ function CardForm({
       </div>
       <div>
         <label className="block text-[14px] text-neutral-500 mb-1">Tags</label>
-        <div className="flex flex-wrap gap-1">
-          {allTags.map((tag) => (
-            <button key={tag.id} onClick={() => toggleTag(tag.name)}
-              className={`px-2 py-0.5 text-[14px] rounded transition-colors ${
-                tags.includes(tag.name) ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
-              }`}>{tag.name}</button>
-          ))}
-        </div>
+        <TagChipsInput selected={tags} allTags={allTags} onChange={setTags} />
       </div>
       <div className="flex gap-2 pt-2">
         <button onClick={() => onSave({ jp_text: jpText, reading, meaning, note: note || null, source_capture_id: initialCaptureId, source_text_fragment: null, tags })}
@@ -284,13 +364,17 @@ function CardForm({
 // --- Card Detail (view/edit) ---
 function CardDetail({
   card,
+  allTags,
   onLevelChange,
   onSave,
+  onTagsChange,
   onDelete,
 }: {
   card: Card;
+  allTags: Tag[];
   onLevelChange: (level: number) => void;
   onSave: (field: string, value: string) => void;
+  onTagsChange: (tags: string[]) => void;
   onDelete: () => void;
 }) {
   const level = getCardLevel(card.status);
@@ -329,13 +413,10 @@ function CardDetail({
       </div>
 
       {/* Tags */}
-      {card.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {card.tags.map((t) => (
-            <span key={t} className="text-[14px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded">{t}</span>
-          ))}
-        </div>
-      )}
+      <div>
+        <label className="block text-[14px] text-neutral-500 mb-1">Tags</label>
+        <TagChipsInput selected={card.tags} allTags={allTags} onChange={onTagsChange} />
+      </div>
     </div>
   );
 }
