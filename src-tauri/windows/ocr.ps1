@@ -92,11 +92,17 @@ function Run-Ocr($imagePath, $preset) {
         $stream.Dispose()
 
         $rawText = $allLines -join "`n"
+
+        # Windows OCR Japanese engine inserts spaces between CJK characters.
+        # Strip spaces that sit between two CJK/kana characters.
+        $cjk = '[\p{IsCJKUnifiedIdeographs}\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographsExtensionA}\p{IsCJKCompatibilityIdeographs}\u30FC\uFF01-\uFF5E]'
+        $normalizedText = [regex]::Replace($rawText, "(?<=$cjk)\s+(?=$cjk)", '')
+
         $confidence = if ($allLines.Count -gt 0) { 85.0 } else { 0.0 }
 
         return @{
             raw_text       = $rawText
-            normalized_text = $rawText
+            normalized_text = $normalizedText
             confidence     = $confidence
             error          = $null
         }
