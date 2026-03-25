@@ -17,12 +17,15 @@ jobs:
           - platform: macos-latest
             args: "--target aarch64-apple-darwin"
             rust_target: aarch64-apple-darwin
+            config_path: src-tauri/tauri.macos.conf.json
           - platform: macos-latest
             args: "--target x86_64-apple-darwin"
             rust_target: x86_64-apple-darwin
+            config_path: src-tauri/tauri.macos.conf.json
           - platform: windows-latest
             args: ""
             rust_target: ""
+            config_path: src-tauri/tauri.windows.conf.json
 
     runs-on: ${{ matrix.platform }}
 
@@ -70,12 +73,6 @@ jobs:
           # Copy the bundled OCR into src-tauri for resource bundling
           Copy-Item -Recurse -Force dist/ocr_service ../src-tauri/ocr_service
 
-      # Ensure resource directories exist (Tauri glob won't fail on empty)
-      - name: Prepare resource dirs
-        shell: bash
-        run: |
-          mkdir -p src-tauri/bin src-tauri/windows src-tauri/ocr_service
-
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -92,4 +89,5 @@ jobs:
             Windows uses RapidOCR (PaddleOCR-based) for high quality Japanese + English text recognition.
           releaseDraft: true
           prerelease: false
+          configPath: ${{ matrix.config_path }}
           args: ${{ matrix.args }}

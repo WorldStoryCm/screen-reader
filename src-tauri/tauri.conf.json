@@ -38,10 +38,6 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "bin/*",
-      "windows/*",
-      "ocr_service/**/*"
-    ]
+    "resources": []
   }
 }
