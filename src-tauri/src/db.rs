@@ -399,6 +399,61 @@ pub fn list_tags(state: State<DbState>) -> Result<Vec<Tag>, String> {
 }
 
 #[tauri::command]
+pub fn create_tag(state: State<DbState>, name: String) -> Result<Tag, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let id = uuid::Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO tags (id, name) VALUES (?1, ?2)",
+        params![id, name],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(Tag { id, name })
+}
+
+#[tauri::command]
+pub fn rename_tag(state: State<DbState>, id: String, name: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE tags SET name = ?1 WHERE id = ?2",
+        params![name, id],
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_tag(state: State<DbState>, id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM capture_tags WHERE tag_id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM card_tags WHERE tag_id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM tags WHERE id = ?1", params![id])
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn find_card_by_text(state: State<DbState>, text: String) -> Result<Option<Card>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let result = conn.query_row(
+        "SELECT id, jp_text, reading, meaning, note, status,
+                source_capture_id, source_text_fragment, created_at, updated_at
+         FROM cards WHERE jp_text = ?1",
+        params![text],
+        card_from_row,
+    );
+    match result {
+        Ok(mut card) => {
+            card.tags = load_card_tags(&conn, &card.id);
+            Ok(Some(card))
+        }
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
 pub fn get_setting(state: State<DbState>, key: String) -> Result<Option<String>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let result = conn.query_row(

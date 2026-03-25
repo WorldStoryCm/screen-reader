@@ -7,6 +7,7 @@ import TokenizedText from "./capture/TokenizedText";
 import HistoryView from "./history/HistoryView";
 import CardsView from "./cards/CardsView";
 import SettingsView from "./settings/SettingsView";
+import TagsView from "./tags/TagsView";
 
 interface Region {
   startX: number;
@@ -22,7 +23,7 @@ interface CaptureEntry {
   timestamp: number;
 }
 
-type Tab = "capture" | "history" | "cards" | "settings";
+type Tab = "capture" | "history" | "cards" | "tags" | "settings";
 
 export default function MainView() {
   const [tab, setTab] = useState<Tab>("capture");
@@ -226,6 +227,7 @@ export default function MainView() {
     capture: "Screen Reader",
     history: "History",
     cards: "Cards",
+    tags: "Tags",
     settings: "Settings",
   };
 
@@ -374,6 +376,7 @@ export default function MainView() {
 
         {tab === "history" && <HistoryView />}
         {tab === "cards" && <CardsView />}
+        {tab === "tags" && <TagsView />}
         {tab === "settings" && <SettingsView />}
       </div>
     </div>

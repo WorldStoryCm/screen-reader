@@ -4,8 +4,48 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Capture, Tag } from "../../types/capture";
 import type { OcrResult } from "../../types/ocr";
 import TokenizedText from "../capture/TokenizedText";
-import type { Token } from "../../lib/tokenizer";
 import { PRESETS } from "../../types/capture";
+
+interface DateGroup {
+  label: string;
+  captures: Capture[];
+}
+
+function groupByDate(captures: Capture[]): DateGroup[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+
+  const groups = new Map<string, Capture[]>();
+
+  for (const capture of captures) {
+    const secs = parseFloat(capture.created_at);
+    const date = isNaN(secs) ? new Date() : new Date(secs * 1000);
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    let label: string;
+    if (dayStart.getTime() === today.getTime()) {
+      label = "Today";
+    } else if (dayStart.getTime() === yesterday.getTime()) {
+      label = "Yesterday";
+    } else {
+      label = dayStart.toLocaleDateString(undefined, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: dayStart.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      });
+    }
+
+    if (!groups.has(label)) groups.set(label, []);
+    groups.get(label)!.push(capture);
+  }
+
+  return Array.from(groups.entries()).map(([label, captures]) => ({
+    label,
+    captures,
+  }));
+}
 
 export default function HistoryView() {
   const [captures, setCaptures] = useState<Capture[]>([]);
@@ -20,12 +60,11 @@ export default function HistoryView() {
   const [rerunPreset, setRerunPreset] = useState("");
   const [rerunning, setRerunning] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
-  const [cardJp, setCardJp] = useState<string | null>(null);
 
   const loadCaptures = useCallback(async () => {
     try {
       const list = await invoke<Capture[]>("list_captures", {
-        limit: 100,
+        limit: 200,
         offset: 0,
         tag: filterTag,
       });
@@ -58,7 +97,8 @@ export default function HistoryView() {
     setRerunPreset(capture.preprocess_preset);
   }
 
-  async function handleDelete(id: string) {
+  async function handleDelete(id: string, e?: React.MouseEvent) {
+    e?.stopPropagation();
     await invoke("delete_capture", { id });
     setCaptures((prev) => prev.filter((c) => c.id !== id));
     if (selected?.id === id) setSelected(null);
@@ -132,12 +172,17 @@ export default function HistoryView() {
   function formatTime(timestamp: string) {
     const secs = parseFloat(timestamp);
     if (isNaN(secs)) return timestamp;
-    return new Date(secs * 1000).toLocaleString();
+    return new Date(secs * 1000).toLocaleTimeString(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
 
   function truncate(text: string, maxLen: number) {
     return text.length <= maxLen ? text : text.slice(0, maxLen) + "...";
   }
+
+  const dateGroups = groupByDate(captures);
 
   if (loading) {
     return (
@@ -151,11 +196,11 @@ export default function HistoryView() {
     <div className="flex h-full">
       {/* Left: list */}
       <div className="w-1/2 border-r border-neutral-700 flex flex-col">
-        {/* Tag filter bar */}
-        <div className="flex gap-1 p-2 border-b border-neutral-800 overflow-x-auto shrink-0">
+        {/* Tag filter bar — horizontal scroll */}
+        <div className="flex gap-1 p-2 border-b border-neutral-800 overflow-x-auto shrink-0 scrollbar-visible">
           <button
             onClick={() => setFilterTag(null)}
-            className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors ${
+            className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors shrink-0 ${
               filterTag === null
                 ? "bg-blue-600 text-white"
                 : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
@@ -167,7 +212,7 @@ export default function HistoryView() {
             <button
               key={tag.id}
               onClick={() => setFilterTag(tag.name)}
-              className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors ${
+              className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors shrink-0 ${
                 filterTag === tag.name
                   ? "bg-blue-600 text-white"
                   : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
@@ -178,46 +223,64 @@ export default function HistoryView() {
           ))}
         </div>
 
-        {/* Capture list */}
+        {/* Capture list grouped by date */}
         <div className="flex-1 overflow-y-auto">
           {captures.length === 0 ? (
             <div className="p-4 text-neutral-500 text-sm text-center">
               {filterTag ? `No captures tagged "${filterTag}"` : "No captures yet"}
             </div>
           ) : (
-            captures.map((capture) => (
-              <div
-                key={capture.id}
-                onClick={() => selectCapture(capture)}
-                className={`p-3 border-b border-neutral-800 cursor-pointer transition-colors ${
-                  selected?.id === capture.id
-                    ? "bg-neutral-800"
-                    : "hover:bg-neutral-800/50"
-                }`}
-              >
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-[10px] text-neutral-500">
-                    {formatTime(capture.created_at)}
-                  </span>
-                  <span className="text-[10px] text-neutral-600">
-                    {capture.confidence.toFixed(0)}%
+            dateGroups.map((group) => (
+              <div key={group.label}>
+                <div className="px-3 py-1.5 bg-neutral-850 border-b border-neutral-800 sticky top-0 z-10 bg-neutral-900">
+                  <span className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide">
+                    {group.label}
                   </span>
                 </div>
-                <p className="text-xs text-neutral-300 leading-relaxed">
-                  {truncate(capture.normalized_text || capture.ocr_text, 80)}
-                </p>
-                {capture.tags.length > 0 && (
-                  <div className="flex gap-1 mt-1 flex-wrap">
-                    {capture.tags.map((t) => (
-                      <span
-                        key={t}
-                        className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded"
-                      >
-                        {t}
+                {group.captures.map((capture) => (
+                  <div
+                    key={capture.id}
+                    onClick={() => selectCapture(capture)}
+                    className={`group p-3 border-b border-neutral-800 cursor-pointer transition-colors ${
+                      selected?.id === capture.id
+                        ? "bg-neutral-800"
+                        : "hover:bg-neutral-800/50"
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-1">
+                      <span className="text-[12px] text-neutral-500">
+                        {formatTime(capture.created_at)}
                       </span>
-                    ))}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[12px] text-neutral-600">
+                          {capture.confidence.toFixed(0)}%
+                        </span>
+                        <button
+                          onClick={(e) => handleDelete(capture.id, e)}
+                          className="text-[12px] px-2  text-red-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Delete"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-neutral-300 leading-relaxed">
+                      {truncate(capture.normalized_text || capture.ocr_text, 80)}
+                    </p>
+                    {capture.tags.length > 0 && (
+                      <div className="flex gap-1 mt-1 overflow-x-auto scrollbar-visible">
+                        {capture.tags.map((t) => (
+                          <span
+                            key={t}
+                            className="text-[10px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded whitespace-nowrap shrink-0"
+                          >
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
             ))
           )}
@@ -231,7 +294,10 @@ export default function HistoryView() {
             {/* Header */}
             <div className="flex justify-between items-center">
               <span className="text-xs text-neutral-500">
-                {formatTime(selected.created_at)}
+                {(() => {
+                  const secs = parseFloat(selected.created_at);
+                  return isNaN(secs) ? selected.created_at : new Date(secs * 1000).toLocaleString();
+                })()}
               </span>
               <div className="flex gap-2">
                 <button
@@ -267,7 +333,7 @@ export default function HistoryView() {
                 {showTokens ? (
                   <TokenizedText
                     text={selected.normalized_text || selected.ocr_text}
-                    onTokenSelect={(token: Token) => setCardJp(token.surface)}
+                    captureId={selected.id}
                   />
                 ) : (
                   <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed font-mono">
@@ -276,15 +342,6 @@ export default function HistoryView() {
                 )}
               </div>
             </div>
-
-            {/* Quick card creation from token */}
-            {cardJp && (
-              <QuickCardForm
-                jpText={cardJp}
-                captureId={selected.id}
-                onClose={() => setCardJp(null)}
-              />
-            )}
 
             {/* OCR retry */}
             <div>
@@ -318,12 +375,12 @@ export default function HistoryView() {
               <label className="block text-[10px] text-neutral-500 mb-1">
                 Tags
               </label>
-              <div className="flex flex-wrap gap-1 mb-2">
+              <div className="flex gap-1 overflow-x-auto scrollbar-visible pb-1">
                 {allTags.map((tag) => (
                   <button
                     key={tag.id}
                     onClick={() => toggleTag(tag.name)}
-                    className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+                    className={`px-2 py-0.5 text-[10px] rounded transition-colors whitespace-nowrap shrink-0 ${
                       editTags.includes(tag.name)
                         ? "bg-blue-600 text-white"
                         : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
@@ -337,7 +394,7 @@ export default function HistoryView() {
                 JSON.stringify(selected.tags) && (
                 <button
                   onClick={handleSaveTags}
-                  className="px-2 py-1 text-[10px] bg-green-700 hover:bg-green-600 rounded transition-colors"
+                  className="mt-1 px-2 py-1 text-[10px] bg-green-700 hover:bg-green-600 rounded transition-colors"
                 >
                   Save tags
                 </button>
@@ -372,78 +429,6 @@ export default function HistoryView() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function QuickCardForm({
-  jpText,
-  captureId,
-  onClose,
-}: {
-  jpText: string;
-  captureId: string;
-  onClose: () => void;
-}) {
-  const [reading, setReading] = useState("");
-  const [meaning, setMeaning] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  async function handleSave() {
-    try {
-      await invoke("create_card", {
-        input: {
-          jp_text: jpText,
-          reading,
-          meaning,
-          note: null,
-          source_capture_id: captureId,
-          source_text_fragment: jpText,
-          tags: [],
-        },
-      });
-      setSaved(true);
-      setTimeout(onClose, 1000);
-    } catch (err) {
-      console.error("Failed to create card:", err);
-    }
-  }
-
-  if (saved) {
-    return (
-      <div className="bg-green-900/30 border border-green-800 rounded p-3 text-green-400 text-xs">
-        Card saved!
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-neutral-800 border border-neutral-700 rounded p-3 space-y-2">
-      <div className="flex justify-between items-center">
-        <span className="text-xs font-medium text-neutral-300">
-          Create card: <span className="text-blue-400">{jpText}</span>
-        </span>
-        <button onClick={onClose} className="text-neutral-500 hover:text-neutral-300 text-sm">×</button>
-      </div>
-      <input
-        value={reading}
-        onChange={(e) => setReading(e.target.value)}
-        placeholder="Reading (e.g. にほんご)"
-        className="w-full px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-neutral-300"
-      />
-      <input
-        value={meaning}
-        onChange={(e) => setMeaning(e.target.value)}
-        placeholder="Meaning"
-        className="w-full px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-neutral-300"
-      />
-      <button
-        onClick={handleSave}
-        disabled={!reading && !meaning}
-        className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded font-medium transition-colors"
-      >
-        Save Card
-      </button>
     </div>
   );
 }
