@@ -53,14 +53,28 @@ jobs:
           swiftc -O -o src-tauri/bin/vision_ocr src-tauri/swift/vision_ocr.swift \
             -framework Vision -framework AppKit -framework CoreGraphics -framework ImageIO
 
-      # Windows: create bin dir placeholder so resource bundling doesn't fail
-      - name: Prepare Windows build
+      # Windows: build standalone OCR exe with RapidOCR + PyInstaller
+      - name: Setup Python (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build OCR binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path src-tauri/bin | Out-Null
-          # Create a placeholder so the resource entry doesn't fail
-          "placeholder" | Out-File -FilePath src-tauri/bin/vision_ocr -Encoding ascii
+          cd python
+          pip install rapidocr-onnxruntime pyinstaller pillow
+          python build_ocr.py
+          # Copy the bundled OCR into src-tauri for resource bundling
+          Copy-Item -Recurse -Force dist/ocr_service ../src-tauri/ocr_service
+
+      # Ensure resource directories exist (Tauri glob won't fail on empty)
+      - name: Prepare resource dirs
+        shell: bash
+        run: |
+          mkdir -p src-tauri/bin src-tauri/windows src-tauri/ocr_service
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -75,9 +89,7 @@ jobs:
             - **macOS (Apple Silicon)**: `aarch64.dmg`
             - **macOS (Intel)**: `x86_64.dmg`
 
-            ### Windows note
-            Japanese OCR requires the Japanese language pack:
-            Settings > Time & Language > Language > Add language > Japanese
+            Windows uses RapidOCR (PaddleOCR-based) for high quality Japanese + English text recognition.
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

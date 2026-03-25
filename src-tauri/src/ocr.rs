@@ -49,19 +49,37 @@ fn find_ocr_executable(app: &tauri::App) -> Option<(String, Vec<String>)> {
     None
 }
 
-/// Windows: use PowerShell with the bundled OCR script.
+/// Windows: use bundled ocr_service.exe (RapidOCR), fall back to PowerShell.
 #[cfg(target_os = "windows")]
 fn find_ocr_executable(app: &tauri::App) -> Option<(String, Vec<String>)> {
     let resource_dir = app.path().resource_dir().unwrap_or_default();
     let dev_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 
-    let candidates = vec![
+    // Prefer bundled RapidOCR binary
+    let exe_candidates = vec![
+        resource_dir.join("ocr_service/ocr_service.exe"),
+        dev_root
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("python/dist/ocr_service/ocr_service.exe"),
+    ];
+
+    for candidate in &exe_candidates {
+        if candidate.exists() {
+            eprintln!("[ocr] Found RapidOCR at: {}", candidate.display());
+            return Some((candidate.to_string_lossy().to_string(), Vec::new()));
+        }
+    }
+
+    // Fallback: PowerShell Windows.Media.Ocr
+    let ps_candidates = vec![
         resource_dir.join("windows/ocr.ps1"),
         dev_root.join("windows/ocr.ps1"),
     ];
 
-    for candidate in &candidates {
+    for candidate in &ps_candidates {
         if candidate.exists() {
+            eprintln!("[ocr] Falling back to PowerShell OCR");
             return Some((
                 "powershell".to_string(),
                 vec![
@@ -112,6 +130,13 @@ pub fn run_ocr(
     let mut command = Command::new(cmd);
     for arg in &extra_args {
         command.arg(arg);
+    }
+
+    // Hide console window on Windows
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
     let mut child = command

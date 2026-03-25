@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""OCR sidecar service for Game OCR app.
+"""Cross-platform OCR service using RapidOCR (PaddleOCR-based).
 
-Reads JSON requests from stdin, processes images, runs Tesseract OCR,
-and writes JSON results to stdout.
+Falls back to Windows.Media.Ocr via PowerShell or Tesseract if RapidOCR not available.
 
 Protocol:
   Input:  {"image_path": "...", "preset": "default_ui"}
@@ -14,65 +13,22 @@ import sys
 import unicodedata
 from pathlib import Path
 
+# Try to import RapidOCR (preferred engine)
+RAPID_OCR = None
 try:
-    from PIL import Image, ImageEnhance, ImageFilter
+    from rapidocr_onnxruntime import RapidOCR as _RapidOCR
+    RAPID_OCR = _RapidOCR()
 except ImportError:
-    print(json.dumps({"error": "Pillow not installed. Run: pip install Pillow"}), flush=True)
-    sys.exit(1)
+    pass
 
-try:
-    import pytesseract
-except ImportError:
-    print(json.dumps({"error": "pytesseract not installed. Run: pip install pytesseract"}), flush=True)
-    sys.exit(1)
-
-
-# --- Preprocessing presets ---
-
-def preset_default_ui(img: Image.Image) -> Image.Image:
-    """Default for game UI text: grayscale + upscale x2."""
-    img = img.convert("L")
-    img = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.5)
-    return img
-
-
-def preset_small_text(img: Image.Image) -> Image.Image:
-    """For small text: upscale x3 + sharpen + high contrast."""
-    img = img.convert("L")
-    img = img.resize((img.width * 3, img.height * 3), Image.LANCZOS)
-    img = img.filter(ImageFilter.SHARPEN)
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(2.0)
-    return img
-
-
-def preset_dark_bg(img: Image.Image) -> Image.Image:
-    """For light text on dark background: invert + grayscale + upscale x2."""
-    img = img.convert("L")
-    from PIL import ImageOps
-    img = ImageOps.invert(img)
-    img = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
-    enhancer = ImageEnhance.Contrast(img)
-    img = enhancer.enhance(1.5)
-    return img
-
-
-def preset_light_bg(img: Image.Image) -> Image.Image:
-    """For dark text on light background: grayscale + threshold + upscale x2."""
-    img = img.convert("L")
-    img = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
-    img = img.point(lambda x: 0 if x < 128 else 255, "1")
-    return img
-
-
-PRESETS = {
-    "default_ui": preset_default_ui,
-    "small_text": preset_small_text,
-    "dark_bg": preset_dark_bg,
-    "light_bg": preset_light_bg,
-}
+# Fallback: Tesseract
+TESSERACT = False
+if RAPID_OCR is None:
+    try:
+        import pytesseract
+        TESSERACT = True
+    except ImportError:
+        pass
 
 
 def normalize_text(text: str) -> str:
@@ -86,36 +42,62 @@ def normalize_text(text: str) -> str:
     return "\n".join(lines)
 
 
-def run_ocr(image_path: str, preset: str = "default_ui") -> dict:
-    """Run OCR on an image with the specified preprocessing preset."""
-    path = Path(image_path)
-    if not path.exists():
-        return {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": f"File not found: {image_path}"}
+def run_ocr_rapid(image_path: str) -> dict:
+    """Run OCR using RapidOCR (PaddleOCR ONNX models)."""
+    result, elapse = RAPID_OCR(image_path)
+
+    if result is None or len(result) == 0:
+        return {
+            "raw_text": "",
+            "normalized_text": "",
+            "confidence": 0.0,
+            "error": None,
+        }
+
+    lines = []
+    total_conf = 0.0
+    count = 0
+    for item in result:
+        # item: [box_coords, text, confidence]
+        text = item[1]
+        conf = item[2]
+        lines.append(text)
+        total_conf += conf
+        count += 1
+
+    raw_text = "\n".join(lines)
+    avg_conf = (total_conf / count * 100) if count > 0 else 0.0
+
+    return {
+        "raw_text": raw_text,
+        "normalized_text": normalize_text(raw_text),
+        "confidence": round(avg_conf, 2),
+        "error": None,
+    }
+
+
+def run_ocr_tesseract(image_path: str, preset: str) -> dict:
+    """Fallback: Run OCR using Tesseract."""
+    from PIL import Image, ImageEnhance
 
     try:
-        img = Image.open(path)
+        img = Image.open(image_path)
     except Exception as e:
-        return {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": f"Failed to open image: {e}"}
+        return {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": str(e)}
 
-    # Apply preprocessing
-    preprocess_fn = PRESETS.get(preset, preset_default_ui)
+    # Basic preprocessing: grayscale + upscale
+    img = img.convert("L")
+    img = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
+    enhancer = ImageEnhance.Contrast(img)
+    img = enhancer.enhance(1.5)
+
     try:
-        processed = preprocess_fn(img)
-    except Exception as e:
-        return {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": f"Preprocessing failed: {e}"}
-
-    # Run Tesseract
-    try:
-        # Get text with confidence data
-        data = pytesseract.image_to_data(processed, lang="jpn", output_type=pytesseract.Output.DICT)
-        raw_text = pytesseract.image_to_string(processed, lang="jpn")
-
-        # Calculate average confidence (excluding -1 which means no text)
+        import pytesseract
+        data = pytesseract.image_to_data(img, lang="jpn+eng", output_type=pytesseract.Output.DICT)
+        raw_text = pytesseract.image_to_string(img, lang="jpn+eng")
         confidences = [c for c in data["conf"] if c != -1]
         avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
-
         normalized = normalize_text(raw_text)
-
         return {
             "raw_text": raw_text,
             "normalized_text": normalized,
@@ -123,11 +105,38 @@ def run_ocr(image_path: str, preset: str = "default_ui") -> dict:
             "error": None,
         }
     except Exception as e:
-        return {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": f"OCR failed: {e}"}
+        return {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": str(e)}
+
+
+def run_ocr(image_path: str, preset: str = "default_ui") -> dict:
+    """Run OCR on an image."""
+    path = Path(image_path)
+    if not path.exists():
+        return {"raw_text": "", "normalized_text": "", "confidence": 0.0,
+                "error": f"File not found: {image_path}"}
+
+    if RAPID_OCR is not None:
+        try:
+            return run_ocr_rapid(image_path)
+        except Exception as e:
+            sys.stderr.write(f"[ocr] RapidOCR failed: {e}\n")
+            sys.stderr.flush()
+
+    if TESSERACT:
+        try:
+            return run_ocr_tesseract(image_path, preset)
+        except Exception as e:
+            sys.stderr.write(f"[ocr] Tesseract failed: {e}\n")
+            sys.stderr.flush()
+
+    return {"raw_text": "", "normalized_text": "", "confidence": 0.0,
+            "error": "No OCR engine available. Install: pip install rapidocr-onnxruntime"}
 
 
 def main():
-    """Main loop: read JSON from stdin, run OCR, write JSON to stdout."""
+    sys.stderr.write(f"[ocr] engine: {'RapidOCR' if RAPID_OCR else 'Tesseract' if TESSERACT else 'NONE'}\n")
+    sys.stderr.flush()
+
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -136,7 +145,8 @@ def main():
         try:
             request = json.loads(line)
         except json.JSONDecodeError as e:
-            result = {"raw_text": "", "normalized_text": "", "confidence": 0.0, "error": f"Invalid JSON: {e}"}
+            result = {"raw_text": "", "normalized_text": "", "confidence": 0.0,
+                      "error": f"Invalid JSON: {e}"}
             print(json.dumps(result), flush=True)
             continue
 
