@@ -60,6 +60,9 @@ export default function MainView() {
   const [panelWidth, setPanelWidth] = useState(200);
   const [panelSide, setPanelSide] = useState<"left" | "right">("right");
 
+  // Hotkey display
+  const [hotkeyLabel, setHotkeyLabel] = useState("Ctrl+Shift+X");
+
   // Refs for non-passive wheel listener
   const hasScreenshot = useRef(false);
   hasScreenshot.current = !!screenshotUrl;
@@ -78,6 +81,17 @@ export default function MainView() {
     ro.observe(c);
     return () => ro.disconnect();
   }, [natW, natH, isFit]);
+
+  // Load hotkey label
+  useEffect(() => {
+    invoke<string | null>("get_setting", { key: "hotkey" })
+      .then(v => { if (v) setHotkeyLabel(v); })
+      .catch(() => {});
+    const unlisten = listen<string>("hotkey-changed", (e) => {
+      setHotkeyLabel(e.payload);
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
 
   // Load panel side preference
   useEffect(() => {
@@ -385,7 +399,7 @@ export default function MainView() {
               >
                 {capturing ? "Capturing..." : "Capture"}
               </button>
-              <span className="text-[16px] text-neutral-500">Ctrl+Shift+X</span>
+              <span className="text-[16px] text-neutral-500">{hotkeyLabel}</span>
 
               {screenshotUrl && (
                 <div className="flex items-center gap-1 ml-auto">
@@ -462,7 +476,7 @@ export default function MainView() {
                   </div>
                 ) : (
                   <div className="flex items-center justify-center h-full text-neutral-600 text-sm">
-                    {capturing ? "Taking screenshot..." : "Press Capture or Ctrl+Shift+X"}
+                    {capturing ? "Taking screenshot..." : `Press Capture or ${hotkeyLabel}`}
                   </div>
                 )}
               </div>

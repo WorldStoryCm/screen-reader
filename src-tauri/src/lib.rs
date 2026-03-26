@@ -100,6 +100,13 @@ pub fn run() {
             db::list_cards,
             db::delete_card,
             db::export_cards_csv,
+            db::export_cards_json,
+            db::import_cards_json,
+            db::list_sources,
+            db::create_source,
+            db::add_card_source,
+            db::remove_card_source,
+            commands::update_hotkey,
             db::get_setting,
             db::set_setting,
         ])

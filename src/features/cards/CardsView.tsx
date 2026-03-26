@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { save } from "@tauri-apps/plugin-dialog";
-import type { Card, CreateCardInput } from "../../types/card";
-import { getCardLevel, LEVELS, LEVEL_LABELS, LEVEL_COLORS, LEVEL_ROMAN } from "../../types/card";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import type { Card, CreateCardInput, CardSource } from "../../types/card";
+import { getCardLevel, LEVELS, LEVEL_LABELS, LEVEL_COLORS, LEVEL_ROMAN, CATEGORIES } from "../../types/card";
 import type { Tag } from "../../types/capture";
 
 export default function CardsView() {
@@ -63,7 +63,7 @@ export default function CardsView() {
     if (selected?.id === id) setSelected(null);
   }
 
-  async function handleExport() {
+  async function handleExportTsv() {
     try {
       const filePath = await save({
         defaultPath: "cards.tsv",
@@ -71,9 +71,44 @@ export default function CardsView() {
       });
       if (!filePath) return;
       const count = await invoke<number>("export_cards_csv", { path: filePath });
-      alert(`Exported ${count} cards to ${filePath}`);
+      alert(`Exported ${count} cards (TSV)`);
     } catch (err) {
       console.error("Export failed:", err);
+    }
+  }
+
+  async function handleExportJson() {
+    try {
+      const filePath = await save({
+        defaultPath: "vocabulary.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!filePath) return;
+      const count = await invoke<number>("export_cards_json", { path: filePath });
+      alert(`Exported ${count} cards (JSON)`);
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  }
+
+  async function handleImportJson(mode: string) {
+    try {
+      const filePath = await open({
+        filters: [{ name: "JSON", extensions: ["json"] }],
+        multiple: false,
+      });
+      if (!filePath) return;
+      const result = await invoke<{ imported: number; skipped: number; updated: number; errors: string[] }>(
+        "import_cards_json", { path: filePath, mode }
+      );
+      const parts = [];
+      if (result.imported > 0) parts.push(`${result.imported} imported`);
+      if (result.updated > 0) parts.push(`${result.updated} updated`);
+      if (result.skipped > 0) parts.push(`${result.skipped} skipped`);
+      alert(parts.join(", ") || "No changes");
+      if (result.imported > 0 || result.updated > 0) loadCards();
+    } catch (err) {
+      console.error("Import failed:", err);
     }
   }
 
@@ -89,6 +124,30 @@ export default function CardsView() {
     const updated = { ...card, tags };
     setCards((prev) => prev.map((c) => (c.id === card.id ? updated : c)));
     setSelected(updated);
+  }
+
+  async function handleSourceAdd(card: Card, sourceType: string, sourceName: string) {
+    try {
+      const src = await invoke<CardSource>("add_card_source", {
+        cardId: card.id, sourceType, sourceName,
+      });
+      const updated = { ...card, sources: [...card.sources, src] };
+      setCards((prev) => prev.map((c) => (c.id === card.id ? updated : c)));
+      setSelected(updated);
+    } catch (err) {
+      console.error("Failed to add source:", err);
+    }
+  }
+
+  async function handleSourceRemove(card: Card, sourceId: string) {
+    try {
+      await invoke("remove_card_source", { cardId: card.id, sourceId });
+      const updated = { ...card, sources: card.sources.filter((s) => s.source_id !== sourceId) };
+      setCards((prev) => prev.map((c) => (c.id === card.id ? updated : c)));
+      setSelected(updated);
+    } catch (err) {
+      console.error("Failed to remove source:", err);
+    }
   }
 
   if (loading) {
@@ -109,15 +168,32 @@ export default function CardsView() {
               placeholder="Search cards..."
               className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300"
             />
-            <button
-              onClick={handleExport}
-              className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors"
-            >
-              Export
-            </button>
+            <div className="relative group">
+              <button className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors">
+                Export
+              </button>
+              <div className="absolute hidden group-hover:block right-0 pt-0.5 z-20 min-w-[100px]">
+                <div className="bg-neutral-800 border border-neutral-700 rounded shadow-lg">
+                  <button onClick={handleExportJson} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-t">JSON</button>
+                  <button onClick={handleExportTsv} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-b">TSV</button>
+                </div>
+              </div>
+            </div>
+            <div className="relative group">
+              <button className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors">
+                Import
+              </button>
+              <div className="absolute hidden group-hover:block right-0 pt-0.5 z-20 min-w-[140px]">
+                <div className="bg-neutral-800 border border-neutral-700 rounded shadow-lg">
+                  <button onClick={() => handleImportJson("skip")} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-t">Skip existing</button>
+                  <button onClick={() => handleImportJson("update")} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left">Update existing</button>
+                  <button onClick={() => handleImportJson("new")} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-b">Import as new</button>
+                </div>
+              </div>
+            </div>
             <button
               onClick={() => setShowCreate(true)}
-              className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded font-medium transition-colors"
+              className="px-3 py-0 text-xs bg-blue-600 hover:bg-blue-500 rounded transition-colors"
             >
               + New
             </button>
@@ -180,13 +256,26 @@ export default function CardsView() {
                   {card.reading && (
                     <p className="text-xs text-neutral-400 mt-0.5">{card.reading}</p>
                   )}
+                  {card.translation && (
+                    <p className="text-xs text-neutral-300 mt-0.5">{card.translation}</p>
+                  )}
                   {card.meaning && (
                     <p className="text-xs text-neutral-500 mt-0.5">{card.meaning}</p>
                   )}
-                  {card.tags.length > 0 && (
+                  {(card.category || card.tags.length > 0) && (
                     <div className="flex flex-wrap gap-1 mt-1">
+                      {card.category && (
+                        <span className="text-[10px] px-1 py-0 bg-purple-900/40 text-purple-300 rounded">{card.category}</span>
+                      )}
                       {card.tags.map((t) => (
                         <span key={t} className="text-[10px] px-1 py-0 bg-blue-900/40 text-blue-300 rounded">{t}</span>
+                      ))}
+                    </div>
+                  )}
+                  {card.sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {card.sources.map((s) => (
+                        <span key={s.source_id} className="text-[10px] px-1 py-0 bg-emerald-900/40 text-emerald-300 rounded">{s.source_name}</span>
                       ))}
                     </div>
                   )}
@@ -213,6 +302,8 @@ export default function CardsView() {
             onSave={(field, value) => handleSaveEdit(selected, field, value)}
             onTagsChange={(tags) => handleTagsChange(selected, tags)}
             onDelete={() => handleDelete(selected.id)}
+            onSourceAdd={(type, name) => handleSourceAdd(selected, type, name)}
+            onSourceRemove={(id) => handleSourceRemove(selected, id)}
           />
         ) : (
           <div className="flex items-center justify-center h-full text-neutral-600 text-sm">
@@ -315,8 +406,10 @@ function CardForm({
 }) {
   const [jpText, setJpText] = useState(initialJp);
   const [reading, setReading] = useState("");
+  const [translation, setTranslation] = useState("");
   const [meaning, setMeaning] = useState("");
   const [note, setNote] = useState("");
+  const [category, setCategory] = useState("");
   const [tags, setTags] = useState<string[]>([]);
 
   return (
@@ -333,9 +426,24 @@ function CardForm({
           className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
       </div>
       <div>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Translation</label>
+        <input value={translation} onChange={(e) => setTranslation(e.target.value)}
+          placeholder="Direct translation"
+          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
+      </div>
+      <div>
         <label className="block text-[16px] text-neutral-500 mb-0.5">Meaning</label>
         <input value={meaning} onChange={(e) => setMeaning(e.target.value)}
+          placeholder="Definition / explanation"
           className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
+      </div>
+      <div>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Category</label>
+        <select value={category} onChange={(e) => setCategory(e.target.value)}
+          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200">
+          <option value="">None</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
       <div>
         <label className="block text-[16px] text-neutral-500 mb-0.5">Note</label>
@@ -347,7 +455,7 @@ function CardForm({
         <TagChipsInput selected={tags} allTags={allTags} onChange={setTags} />
       </div>
       <div className="flex gap-2 pt-2">
-        <button onClick={() => onSave({ jp_text: jpText, reading, meaning, note: note || null, source_capture_id: initialCaptureId, source_text_fragment: null, tags })}
+        <button onClick={() => onSave({ jp_text: jpText, reading, meaning, translation: translation || null, note: note || null, category: category || null, source_capture_id: initialCaptureId, source_text_fragment: null, tags })}
           disabled={!jpText.trim()}
           className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded font-medium transition-colors">
           Save
@@ -369,6 +477,8 @@ function CardDetail({
   onSave,
   onTagsChange,
   onDelete,
+  onSourceAdd,
+  onSourceRemove,
 }: {
   card: Card;
   allTags: Tag[];
@@ -376,6 +486,8 @@ function CardDetail({
   onSave: (field: string, value: string) => void;
   onTagsChange: (tags: string[]) => void;
   onDelete: () => void;
+  onSourceAdd: (sourceType: string, sourceName: string) => void;
+  onSourceRemove: (sourceId: string) => void;
 }) {
   const level = getCardLevel(card.status);
 
@@ -391,8 +503,22 @@ function CardDetail({
 
       {/* Editable fields */}
       <EditableField label="Reading" value={card.reading} onSave={(v) => onSave("reading", v)} />
+      <EditableField label="Translation" value={card.translation} onSave={(v) => onSave("translation", v)} />
       <EditableField label="Meaning" value={card.meaning} onSave={(v) => onSave("meaning", v)} />
       <EditableField label="Note" value={card.note || ""} onSave={(v) => onSave("note", v)} multiline />
+
+      {/* Category */}
+      <div>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Category</label>
+        <select
+          value={card.category || ""}
+          onChange={(e) => onSave("category", e.target.value)}
+          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200"
+        >
+          <option value="">None</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
+      </div>
 
       {/* Level */}
       <div>
@@ -417,6 +543,64 @@ function CardDetail({
         <label className="block text-[16px] text-neutral-500 mb-1">Tags</label>
         <TagChipsInput selected={card.tags} allTags={allTags} onChange={onTagsChange} />
       </div>
+
+      {/* Sources */}
+      <SourcesSection sources={card.sources} onAdd={onSourceAdd} onRemove={onSourceRemove} />
+    </div>
+  );
+}
+
+// --- Sources Section ---
+function SourcesSection({
+  sources,
+  onAdd,
+  onRemove,
+}: {
+  sources: CardSource[];
+  onAdd: (sourceType: string, sourceName: string) => void;
+  onRemove: (sourceId: string) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [newType, setNewType] = useState("game");
+  const [newName, setNewName] = useState("");
+
+  return (
+    <div>
+      <label className="block text-[16px] text-neutral-500 mb-1">Sources</label>
+      {sources.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {sources.map((s) => (
+            <span key={s.source_id} className="flex items-center gap-1 px-2 py-0.5 text-[14px] bg-emerald-900/40 text-emerald-300 rounded">
+              <span className="text-[10px] text-emerald-500">{s.source_type}</span>
+              {s.source_name}
+              <button onClick={() => onRemove(s.source_id)} className="hover:text-red-300 text-[10px] leading-none">&times;</button>
+            </span>
+          ))}
+        </div>
+      )}
+      {adding ? (
+        <div className="flex gap-1 items-center">
+          <select value={newType} onChange={(e) => setNewType(e.target.value)}
+            className="px-1.5 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300">
+            <option value="game">game</option>
+            <option value="manual">manual</option>
+            <option value="import">import</option>
+            <option value="other">other</option>
+          </select>
+          <input value={newName} onChange={(e) => setNewName(e.target.value)}
+            placeholder="Source name"
+            className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300"
+            onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) { onAdd(newType, newName.trim()); setNewName(""); setAdding(false); } }}
+            autoFocus />
+          <button onClick={() => { if (newName.trim()) { onAdd(newType, newName.trim()); setNewName(""); setAdding(false); } }}
+            className="px-2 py-1 text-[16px] bg-emerald-700 hover:bg-emerald-600 rounded transition-colors">Add</button>
+          <button onClick={() => setAdding(false)}
+            className="px-2 py-1 text-[16px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors">Cancel</button>
+        </div>
+      ) : (
+        <button onClick={() => setAdding(true)}
+          className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">+ Add source</button>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 
@@ -91,20 +91,12 @@ export default function SettingsView() {
         </div>
 
         {/* Hotkey */}
-        <div>
-          <label className="block text-xs text-neutral-400 mb-1">
-            Global Hotkey
-          </label>
-          <input
-            type="text"
-            value={settings.hotkey}
-            readOnly
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-300"
-          />
-          <p className="text-[16px] text-neutral-600 mt-1">
-            Hotkey editing coming soon
-          </p>
-        </div>
+        <HotkeyRecorder
+          value={settings.hotkey}
+          onChange={(hotkey) => {
+            setSettings((s) => ({ ...s, hotkey }));
+          }}
+        />
 
         {/* Default preset */}
         <div>
@@ -180,6 +172,104 @@ export default function SettingsView() {
       {saved && (
         <p className="mt-4 text-green-400 text-xs">Settings saved</p>
       )}
+    </div>
+  );
+}
+
+// --- Hotkey Recorder ---
+
+const MODIFIER_KEYS = new Set(["Control", "Shift", "Alt", "Meta"]);
+
+function keyToLabel(e: KeyboardEvent): string | null {
+  if (MODIFIER_KEYS.has(e.key)) return null;
+  if (e.code.startsWith("Key")) return e.code.slice(3);
+  if (e.code.startsWith("Digit")) return e.code.slice(5);
+  if (e.code.startsWith("Arrow")) return e.code.slice(5);
+  const map: Record<string, string> = {
+    Space: "Space", Enter: "Enter", Escape: "Escape", Backspace: "Backspace",
+    Tab: "Tab", Delete: "Delete", Home: "Home", End: "End",
+    PageUp: "PageUp", PageDown: "PageDown", PrintScreen: "PrintScreen",
+    Insert: "Insert", Comma: ",", Period: ".", Slash: "/",
+    Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[",
+    BracketRight: "]", Backslash: "\\", Semicolon: ";", Quote: "'",
+  };
+  if (e.code.startsWith("F") && /^F\d+$/.test(e.code)) return e.code;
+  return map[e.code] || e.code;
+}
+
+function HotkeyRecorder({ value, onChange }: { value: string; onChange: (hotkey: string) => void }) {
+  const [recording, setRecording] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!recording) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === "Escape") {
+        setRecording(false);
+        return;
+      }
+
+      const key = keyToLabel(e);
+      if (!key) return; // modifier-only press, keep waiting
+
+      const parts: string[] = [];
+      if (e.ctrlKey) parts.push("Ctrl");
+      if (e.shiftKey) parts.push("Shift");
+      if (e.altKey) parts.push("Alt");
+      if (e.metaKey) parts.push("Cmd");
+      parts.push(key);
+
+      if (parts.length < 2) {
+        setError("Use at least one modifier (Ctrl, Shift, Alt)");
+        return;
+      }
+
+      const hotkey = parts.join("+");
+      setRecording(false);
+      setError(null);
+
+      invoke("update_hotkey", { hotkey })
+        .then(() => onChange(hotkey))
+        .catch((err) => setError(String(err)));
+    }
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [recording, onChange]);
+
+  return (
+    <div>
+      <label className="block text-xs text-neutral-400 mb-1">Global Hotkey</label>
+      <div className="flex gap-2 items-center">
+        <button
+          ref={inputRef}
+          onClick={() => { setRecording(true); setError(null); }}
+          className={`flex-1 px-3 py-2 text-left rounded text-sm transition-colors ${
+            recording
+              ? "bg-blue-900/50 border-2 border-blue-500 text-blue-300 animate-pulse"
+              : "bg-neutral-800 border border-neutral-700 text-neutral-300"
+          }`}
+        >
+          {recording ? "Press keys..." : value}
+        </button>
+        {recording && (
+          <button
+            onClick={() => setRecording(false)}
+            className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      <p className="text-[16px] text-neutral-600 mt-1">
+        Click to record a new shortcut (Esc to cancel)
+      </p>
     </div>
   );
 }

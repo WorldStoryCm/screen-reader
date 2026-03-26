@@ -21,6 +21,7 @@ pub fn init_db(app: &tauri::App) -> Result<DbState, Box<dyn std::error::Error>> 
 
     let conn = Connection::open(&db_path)?;
     run_migrations(&conn)?;
+    migrate_add_card_columns(&conn);
     migrate_card_levels(&conn)?;
     seed_tags(&conn)?;
 
@@ -100,6 +101,25 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
 
         CREATE INDEX IF NOT EXISTS idx_card_tags_card ON card_tags(card_id);
 
+        CREATE TABLE IF NOT EXISTS sources (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL DEFAULT 'manual',
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS card_sources (
+            card_id TEXT NOT NULL REFERENCES cards(id),
+            source_id TEXT NOT NULL REFERENCES sources(id),
+            context_text TEXT,
+            screen_name TEXT,
+            PRIMARY KEY (card_id, source_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_card_sources_card ON card_sources(card_id);
+        CREATE INDEX IF NOT EXISTS idx_card_sources_source ON card_sources(source_id);
+        CREATE INDEX IF NOT EXISTS idx_sources_name ON sources(name);
+
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -107,6 +127,11 @@ fn run_migrations(conn: &Connection) -> Result<(), rusqlite::Error> {
         ",
     )?;
     Ok(())
+}
+
+fn migrate_add_card_columns(conn: &Connection) {
+    let _ = conn.execute("ALTER TABLE cards ADD COLUMN translation TEXT NOT NULL DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE cards ADD COLUMN category TEXT", []);
 }
 
 fn migrate_card_levels(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -449,16 +474,11 @@ pub fn delete_tag(state: State<DbState>, id: String) -> Result<(), String> {
 #[tauri::command]
 pub fn find_card_by_text(state: State<DbState>, text: String) -> Result<Option<Card>, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
-    let result = conn.query_row(
-        "SELECT id, jp_text, reading, meaning, note, status,
-                source_capture_id, source_text_fragment, created_at, updated_at
-         FROM cards WHERE jp_text = ?1",
-        params![text],
-        card_from_row,
-    );
+    let sql = format!("SELECT {} FROM cards WHERE jp_text = ?1", CARD_COLUMNS);
+    let result = conn.query_row(&sql, params![text], card_from_row);
     match result {
         Ok(mut card) => {
-            card.tags = load_card_tags(&conn, &card.id);
+            load_card_extras(&conn, &mut card);
             Ok(Some(card))
         }
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -474,10 +494,8 @@ pub fn find_cards_by_texts(state: State<DbState>, texts: Vec<String>) -> Result<
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let placeholders: Vec<String> = (1..=texts.len()).map(|i| format!("?{}", i)).collect();
     let sql = format!(
-        "SELECT id, jp_text, reading, meaning, note, status,
-                source_capture_id, source_text_fragment, created_at, updated_at
-         FROM cards WHERE jp_text IN ({})",
-        placeholders.join(", ")
+        "SELECT {} FROM cards WHERE jp_text IN ({})",
+        CARD_COLUMNS, placeholders.join(", ")
     );
     let params_ref: Vec<&dyn rusqlite::types::ToSql> =
         texts.iter().map(|t| t as &dyn rusqlite::types::ToSql).collect();
@@ -487,7 +505,7 @@ pub fn find_cards_by_texts(state: State<DbState>, texts: Vec<String>) -> Result<
         .map_err(|e| e.to_string())?;
     let mut cards: Vec<Card> = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
     for card in &mut cards {
-        card.tags = load_card_tags(&conn, &card.id);
+        load_card_extras(&conn, card);
     }
     Ok(cards)
 }
@@ -527,13 +545,34 @@ pub struct Card {
     pub jp_text: String,
     pub reading: String,
     pub meaning: String,
+    pub translation: String,
     pub note: Option<String>,
     pub status: String,
+    pub category: Option<String>,
     pub source_capture_id: Option<String>,
     pub source_text_fragment: Option<String>,
     pub created_at: String,
     pub updated_at: String,
     pub tags: Vec<String>,
+    pub sources: Vec<CardSource>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CardSource {
+    pub source_id: String,
+    pub source_type: String,
+    pub source_name: String,
+    pub context_text: Option<String>,
+    pub screen_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Source {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub source_type: String,
+    pub name: String,
+    pub created_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -541,11 +580,72 @@ pub struct CreateCardInput {
     pub jp_text: String,
     pub reading: String,
     pub meaning: String,
+    pub translation: Option<String>,
     pub note: Option<String>,
+    pub category: Option<String>,
     pub source_capture_id: Option<String>,
     pub source_text_fragment: Option<String>,
     pub tags: Vec<String>,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VocabExport {
+    pub version: u32,
+    pub exported_at: String,
+    pub entries: Vec<VocabEntryExport>,
+    pub sources: Vec<SourceExport>,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct VocabEntryExport {
+    pub original: String,
+    #[serde(default)]
+    pub reading: String,
+    #[serde(default)]
+    pub translation: String,
+    #[serde(default)]
+    pub meaning: String,
+    pub notes: Option<String>,
+    pub category: Option<String>,
+    #[serde(default = "default_stage")]
+    pub stage: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub sources: Vec<EntrySourceExport>,
+}
+
+fn default_stage() -> String { "I".to_string() }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SourceExport {
+    #[serde(rename = "type")]
+    pub source_type: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EntrySourceExport {
+    #[serde(rename = "type")]
+    pub source_type: String,
+    pub name: String,
+    pub context_text: Option<String>,
+    pub screen_name: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ImportResult {
+    pub imported: u32,
+    pub skipped: u32,
+    pub updated: u32,
+    pub errors: Vec<String>,
+}
+
+// Column order: id(0), jp_text(1), reading(2), meaning(3), translation(4), note(5),
+//               status(6), category(7), source_capture_id(8), source_text_fragment(9),
+//               created_at(10), updated_at(11)
+const CARD_COLUMNS: &str = "id, jp_text, reading, meaning, translation, note, status, category, source_capture_id, source_text_fragment, created_at, updated_at";
 
 fn card_from_row(row: &rusqlite::Row) -> rusqlite::Result<Card> {
     Ok(Card {
@@ -553,13 +653,16 @@ fn card_from_row(row: &rusqlite::Row) -> rusqlite::Result<Card> {
         jp_text: row.get(1)?,
         reading: row.get(2)?,
         meaning: row.get(3)?,
-        note: row.get(4)?,
-        status: row.get(5)?,
-        source_capture_id: row.get(6)?,
-        source_text_fragment: row.get(7)?,
-        created_at: row.get(8)?,
-        updated_at: row.get(9)?,
+        translation: row.get(4)?,
+        note: row.get(5)?,
+        status: row.get(6)?,
+        category: row.get(7)?,
+        source_capture_id: row.get(8)?,
+        source_text_fragment: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
         tags: Vec::new(),
+        sources: Vec::new(),
     })
 }
 
@@ -570,6 +673,32 @@ fn load_card_tags(conn: &Connection, card_id: &str) -> Vec<String> {
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
         })
         .unwrap_or_default()
+}
+
+fn load_card_sources(conn: &Connection, card_id: &str) -> Vec<CardSource> {
+    conn.prepare(
+        "SELECT s.id, s.type, s.name, cs.context_text, cs.screen_name
+         FROM sources s JOIN card_sources cs ON cs.source_id = s.id
+         WHERE cs.card_id = ?1 ORDER BY s.name"
+    )
+    .and_then(|mut stmt| {
+        stmt.query_map(params![card_id], |row| {
+            Ok(CardSource {
+                source_id: row.get(0)?,
+                source_type: row.get(1)?,
+                source_name: row.get(2)?,
+                context_text: row.get(3)?,
+                screen_name: row.get(4)?,
+            })
+        })
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+    })
+    .unwrap_or_default()
+}
+
+fn load_card_extras(conn: &Connection, card: &mut Card) {
+    card.tags = load_card_tags(conn, &card.id);
+    card.sources = load_card_sources(conn, &card.id);
 }
 
 fn get_or_create_tag(conn: &Connection, name: &str) -> Result<String, String> {
@@ -588,10 +717,11 @@ pub fn create_card(state: State<DbState>, input: CreateCardInput) -> Result<Card
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono_now();
 
+    let translation = input.translation.unwrap_or_default();
     conn.execute(
-        "INSERT INTO cards (id, jp_text, reading, meaning, note, status, source_capture_id, source_text_fragment, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, '1', ?6, ?7, ?8, ?9)",
-        params![id, input.jp_text, input.reading, input.meaning, input.note, input.source_capture_id, input.source_text_fragment, now, now],
+        "INSERT INTO cards (id, jp_text, reading, meaning, translation, note, status, category, source_capture_id, source_text_fragment, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, '1', ?7, ?8, ?9, ?10, ?11)",
+        params![id, input.jp_text, input.reading, input.meaning, translation, input.note, input.category, input.source_capture_id, input.source_text_fragment, now, now],
     ).map_err(|e| e.to_string())?;
 
     // Add tags
@@ -606,13 +736,16 @@ pub fn create_card(state: State<DbState>, input: CreateCardInput) -> Result<Card
         jp_text: input.jp_text,
         reading: input.reading,
         meaning: input.meaning,
+        translation,
         note: input.note,
         status: "1".to_string(),
+        category: input.category,
         source_capture_id: input.source_capture_id,
         source_text_fragment: input.source_text_fragment,
         created_at: now.clone(),
         updated_at: now,
         tags: input.tags,
+        sources: Vec::new(),
     })
 }
 
@@ -623,8 +756,10 @@ pub fn update_card(
     jp_text: Option<String>,
     reading: Option<String>,
     meaning: Option<String>,
+    translation: Option<String>,
     note: Option<String>,
     status: Option<String>,
+    category: Option<String>,
     tags: Option<Vec<String>>,
 ) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
@@ -639,11 +774,17 @@ pub fn update_card(
     if let Some(val) = meaning {
         conn.execute("UPDATE cards SET meaning = ?1, updated_at = ?2 WHERE id = ?3", params![val, now, id]).map_err(|e| e.to_string())?;
     }
+    if let Some(val) = translation {
+        conn.execute("UPDATE cards SET translation = ?1, updated_at = ?2 WHERE id = ?3", params![val, now, id]).map_err(|e| e.to_string())?;
+    }
     if let Some(val) = note {
         conn.execute("UPDATE cards SET note = ?1, updated_at = ?2 WHERE id = ?3", params![val, now, id]).map_err(|e| e.to_string())?;
     }
     if let Some(val) = status {
         conn.execute("UPDATE cards SET status = ?1, updated_at = ?2 WHERE id = ?3", params![val, now, id]).map_err(|e| e.to_string())?;
+    }
+    if let Some(val) = category {
+        conn.execute("UPDATE cards SET category = ?1, updated_at = ?2 WHERE id = ?3", params![val, now, id]).map_err(|e| e.to_string())?;
     }
     if let Some(tag_names) = tags {
         conn.execute("DELETE FROM card_tags WHERE card_id = ?1", params![id]).map_err(|e| e.to_string())?;
@@ -669,11 +810,8 @@ pub fn list_cards(
     let limit = limit.unwrap_or(100);
     let offset = offset.unwrap_or(0);
 
-    let mut sql = String::from(
-        "SELECT c.id, c.jp_text, c.reading, c.meaning, c.note, c.status,
-                c.source_capture_id, c.source_text_fragment, c.created_at, c.updated_at
-         FROM cards c"
-    );
+    let cols = CARD_COLUMNS.split(", ").map(|c| format!("c.{}", c)).collect::<Vec<_>>().join(", ");
+    let mut sql = format!("SELECT {} FROM cards c", cols);
     let mut conditions = Vec::new();
     let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -689,7 +827,8 @@ pub fn list_cards(
     if let Some(ref q) = search {
         let pattern = format!("%{}%", q);
         let idx = param_values.len() + 1;
-        conditions.push(format!("(c.jp_text LIKE ?{} OR c.reading LIKE ?{} OR c.meaning LIKE ?{})", idx, idx + 1, idx + 2));
+        conditions.push(format!("(c.jp_text LIKE ?{} OR c.reading LIKE ?{} OR c.meaning LIKE ?{} OR c.translation LIKE ?{})", idx, idx + 1, idx + 2, idx + 3));
+        param_values.push(Box::new(pattern.clone()));
         param_values.push(Box::new(pattern.clone()));
         param_values.push(Box::new(pattern.clone()));
         param_values.push(Box::new(pattern));
@@ -714,7 +853,7 @@ pub fn list_cards(
     let mut cards: Vec<Card> = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
     for card in &mut cards {
-        card.tags = load_card_tags(&conn, &card.id);
+        load_card_extras(&conn, card);
     }
 
     Ok(cards)
@@ -724,6 +863,7 @@ pub fn list_cards(
 pub fn delete_card(state: State<DbState>, id: String) -> Result<(), String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM card_tags WHERE card_id = ?1", params![id]).map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM card_sources WHERE card_id = ?1", params![id]).map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM cards WHERE id = ?1", params![id]).map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -732,13 +872,8 @@ pub fn delete_card(state: State<DbState>, id: String) -> Result<(), String> {
 pub fn export_cards_csv(state: State<DbState>, path: String) -> Result<u32, String> {
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
 
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, jp_text, reading, meaning, note, status,
-                    source_capture_id, source_text_fragment, created_at, updated_at
-             FROM cards ORDER BY created_at DESC",
-        )
-        .map_err(|e| e.to_string())?;
+    let sql = format!("SELECT {} FROM cards ORDER BY created_at DESC", CARD_COLUMNS);
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
 
     let rows = stmt
         .query_map([], card_from_row)
@@ -746,19 +881,22 @@ pub fn export_cards_csv(state: State<DbState>, path: String) -> Result<u32, Stri
     let mut cards: Vec<Card> = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
 
     for card in &mut cards {
-        card.tags = load_card_tags(&conn, &card.id);
+        load_card_extras(&conn, card);
     }
 
-    // Build CSV
-    let mut csv = String::from("jp_text\treading\tmeaning\ttags\tnote\tstatus\n");
+    // Build TSV
+    let mut csv = String::from("jp_text\treading\ttranslation\tmeaning\tcategory\ttags\tnote\tstatus\n");
     for card in &cards {
         let tags_str = card.tags.join(", ");
         let note_str = card.note.as_deref().unwrap_or("").replace('\t', " ").replace('\n', " ");
+        let category_str = card.category.as_deref().unwrap_or("");
         csv.push_str(&format!(
-            "{}\t{}\t{}\t{}\t{}\t{}\n",
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n",
             card.jp_text.replace('\t', " "),
             card.reading.replace('\t', " "),
+            card.translation.replace('\t', " "),
             card.meaning.replace('\t', " "),
+            category_str,
             tags_str,
             note_str,
             card.status
@@ -779,4 +917,246 @@ fn chrono_now() -> String {
     let secs = duration.as_secs();
     let millis = duration.as_millis() % 1000;
     format!("{}.{:03}", secs, millis)
+}
+
+// --- Source commands ---
+
+#[tauri::command]
+pub fn list_sources(state: State<DbState>) -> Result<Vec<Source>, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare("SELECT id, type, name, created_at FROM sources ORDER BY name")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], |row| {
+        Ok(Source {
+            id: row.get(0)?,
+            source_type: row.get(1)?,
+            name: row.get(2)?,
+            created_at: row.get(3)?,
+        })
+    }).map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn create_source(state: State<DbState>, source_type: String, name: String) -> Result<Source, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO sources (id, type, name, created_at) VALUES (?1, ?2, ?3, ?4)",
+        params![id, source_type, name, now],
+    ).map_err(|e| e.to_string())?;
+    Ok(Source { id, source_type, name, created_at: now })
+}
+
+fn get_or_create_source(conn: &Connection, source_type: &str, name: &str) -> Result<String, String> {
+    if let Ok(id) = conn.query_row(
+        "SELECT id FROM sources WHERE type = ?1 AND name = ?2",
+        params![source_type, name],
+        |row| row.get::<_, String>(0),
+    ) {
+        return Ok(id);
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let now = chrono_now();
+    conn.execute(
+        "INSERT INTO sources (id, type, name, created_at) VALUES (?1, ?2, ?3, ?4)",
+        params![id, source_type, name, now],
+    ).map_err(|e| e.to_string())?;
+    Ok(id)
+}
+
+#[tauri::command]
+pub fn add_card_source(
+    state: State<DbState>,
+    card_id: String,
+    source_type: String,
+    source_name: String,
+    context_text: Option<String>,
+    screen_name: Option<String>,
+) -> Result<CardSource, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let source_id = get_or_create_source(&conn, &source_type, &source_name)?;
+    conn.execute(
+        "INSERT OR IGNORE INTO card_sources (card_id, source_id, context_text, screen_name) VALUES (?1, ?2, ?3, ?4)",
+        params![card_id, source_id, context_text, screen_name],
+    ).map_err(|e| e.to_string())?;
+    Ok(CardSource { source_id, source_type, source_name, context_text, screen_name })
+}
+
+#[tauri::command]
+pub fn remove_card_source(state: State<DbState>, card_id: String, source_id: String) -> Result<(), String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM card_sources WHERE card_id = ?1 AND source_id = ?2",
+        params![card_id, source_id],
+    ).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// --- JSON Export/Import ---
+
+fn status_to_stage(status: &str) -> String {
+    match status {
+        "1" => "I", "2" => "II", "3" => "III", "4" => "IV", "5" => "V",
+        _ => "I",
+    }.to_string()
+}
+
+fn stage_to_status(stage: &str) -> String {
+    match stage {
+        "I" => "1", "II" => "2", "III" => "3", "IV" => "4", "V" => "5",
+        _ => "1",
+    }.to_string()
+}
+
+#[tauri::command]
+pub fn export_cards_json(state: State<DbState>, path: String) -> Result<u32, String> {
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+
+    let sql = format!("SELECT {} FROM cards ORDER BY created_at DESC", CARD_COLUMNS);
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map([], card_from_row).map_err(|e| e.to_string())?;
+    let mut cards: Vec<Card> = rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())?;
+    for card in &mut cards {
+        load_card_extras(&conn, card);
+    }
+
+    // Collect all unique sources
+    let mut all_sources: Vec<SourceExport> = Vec::new();
+    let mut seen_sources = std::collections::HashSet::new();
+
+    let entries: Vec<VocabEntryExport> = cards.iter().map(|card| {
+        let entry_sources: Vec<EntrySourceExport> = card.sources.iter().map(|s| {
+            let key = format!("{}:{}", s.source_type, s.source_name);
+            if seen_sources.insert(key) {
+                all_sources.push(SourceExport {
+                    source_type: s.source_type.clone(),
+                    name: s.source_name.clone(),
+                });
+            }
+            EntrySourceExport {
+                source_type: s.source_type.clone(),
+                name: s.source_name.clone(),
+                context_text: s.context_text.clone(),
+                screen_name: s.screen_name.clone(),
+            }
+        }).collect();
+
+        VocabEntryExport {
+            original: card.jp_text.clone(),
+            reading: card.reading.clone(),
+            translation: card.translation.clone(),
+            meaning: card.meaning.clone(),
+            notes: card.note.clone(),
+            category: card.category.clone(),
+            stage: status_to_stage(&card.status),
+            tags: card.tags.clone(),
+            sources: entry_sources,
+        }
+    }).collect();
+
+    let all_tags: Vec<String> = {
+        let mut tags = std::collections::HashSet::new();
+        for card in &cards {
+            for t in &card.tags {
+                tags.insert(t.clone());
+            }
+        }
+        let mut v: Vec<String> = tags.into_iter().collect();
+        v.sort();
+        v
+    };
+
+    let export = VocabExport {
+        version: 1,
+        exported_at: chrono_now(),
+        entries,
+        sources: all_sources,
+        tags: all_tags,
+    };
+
+    let json = serde_json::to_string_pretty(&export).map_err(|e| e.to_string())?;
+    let count = cards.len() as u32;
+    std::fs::write(&path, json).map_err(|e| format!("Failed to write JSON: {}", e))?;
+    Ok(count)
+}
+
+#[tauri::command]
+pub fn import_cards_json(state: State<DbState>, path: String, mode: String) -> Result<ImportResult, String> {
+    let json_str = std::fs::read_to_string(&path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let data: VocabExport = serde_json::from_str(&json_str).map_err(|e| format!("Invalid JSON: {}", e))?;
+
+    let conn = state.conn.lock().map_err(|e| e.to_string())?;
+    let mut result = ImportResult { imported: 0, skipped: 0, updated: 0, errors: Vec::new() };
+
+    for entry in &data.entries {
+        let existing: Option<String> = conn.query_row(
+            "SELECT id FROM cards WHERE jp_text = ?1",
+            params![entry.original],
+            |row| row.get(0),
+        ).ok();
+
+        match (existing, mode.as_str()) {
+            (Some(_), "skip") => {
+                result.skipped += 1;
+            }
+            (Some(existing_id), "update") => {
+                let now = chrono_now();
+                conn.execute(
+                    "UPDATE cards SET reading = ?1, meaning = ?2, translation = ?3, note = ?4, category = ?5, status = ?6, updated_at = ?7 WHERE id = ?8",
+                    params![entry.reading, entry.meaning, entry.translation, entry.notes, entry.category, stage_to_status(&entry.stage), now, existing_id],
+                ).map_err(|e| e.to_string())?;
+
+                // Update tags
+                conn.execute("DELETE FROM card_tags WHERE card_id = ?1", params![existing_id]).map_err(|e| e.to_string())?;
+                for tag_name in &entry.tags {
+                    let tag_id = get_or_create_tag(&conn, tag_name)?;
+                    conn.execute("INSERT OR IGNORE INTO card_tags (card_id, tag_id) VALUES (?1, ?2)", params![existing_id, tag_id]).map_err(|e| e.to_string())?;
+                }
+
+                // Update sources
+                conn.execute("DELETE FROM card_sources WHERE card_id = ?1", params![existing_id]).map_err(|e| e.to_string())?;
+                for src in &entry.sources {
+                    let source_id = get_or_create_source(&conn, &src.source_type, &src.name)?;
+                    conn.execute(
+                        "INSERT OR IGNORE INTO card_sources (card_id, source_id, context_text, screen_name) VALUES (?1, ?2, ?3, ?4)",
+                        params![existing_id, source_id, src.context_text, src.screen_name],
+                    ).map_err(|e| e.to_string())?;
+                }
+
+                result.updated += 1;
+            }
+            (existing, _) => {
+                // "new" mode or no existing card
+                if existing.is_some() && mode == "new" {
+                    // import-as-new: create duplicate
+                }
+                let id = uuid::Uuid::new_v4().to_string();
+                let now = chrono_now();
+                conn.execute(
+                    "INSERT INTO cards (id, jp_text, reading, meaning, translation, note, status, category, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![id, entry.original, entry.reading, entry.meaning, entry.translation, entry.notes, stage_to_status(&entry.stage), entry.category, now, now],
+                ).map_err(|e| { result.errors.push(format!("Failed to import '{}': {}", entry.original, e)); e.to_string() })?;
+
+                for tag_name in &entry.tags {
+                    let tag_id = get_or_create_tag(&conn, tag_name)?;
+                    let _ = conn.execute("INSERT OR IGNORE INTO card_tags (card_id, tag_id) VALUES (?1, ?2)", params![id, tag_id]);
+                }
+
+                for src in &entry.sources {
+                    let source_id = get_or_create_source(&conn, &src.source_type, &src.name)?;
+                    let _ = conn.execute(
+                        "INSERT OR IGNORE INTO card_sources (card_id, source_id, context_text, screen_name) VALUES (?1, ?2, ?3, ?4)",
+                        params![id, source_id, src.context_text, src.screen_name],
+                    );
+                }
+
+                result.imported += 1;
+            }
+        }
+    }
+
+    Ok(result)
 }

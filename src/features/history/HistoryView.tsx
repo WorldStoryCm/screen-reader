@@ -200,9 +200,9 @@ export default function HistoryView() {
         <div className="flex gap-1 p-2 border-b border-neutral-800 overflow-x-auto shrink-0 scrollbar-visible">
           <button
             onClick={() => setFilterTag(null)}
-            className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
+            className={`px-2 py-0.5 text-[14px] rounded whitespace-nowrap transition-colors shrink-0 ${
               filterTag === null
-                ? "bg-blue-600 text-white"
+                ? "bg-amber-600 text-white"
                 : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
             }`}
           >
@@ -212,9 +212,9 @@ export default function HistoryView() {
             <button
               key={tag.id}
               onClick={() => setFilterTag(tag.name)}
-              className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
+              className={`px-2 py-1 text-[12px] rounded whitespace-nowrap transition-colors shrink-0 ${
                 filterTag === tag.name
-                  ? "bg-blue-600 text-white"
+                  ? "bg-orange-600 text-white"
                   : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
               }`}
             >
@@ -233,7 +233,7 @@ export default function HistoryView() {
             dateGroups.map((group) => (
               <div key={group.label}>
                 <div className="px-3 py-1.5 bg-neutral-850 border-b border-neutral-800 sticky top-0 z-10 bg-neutral-900">
-                  <span className="text-[16px] font-semibold text-neutral-500 uppercase tracking-wide">
+                  <span className="text-[12px] font-semibold text-neutral-500 uppercase tracking-wide">
                     {group.label}
                   </span>
                 </div>
@@ -248,11 +248,11 @@ export default function HistoryView() {
                     }`}
                   >
                     <div className="flex justify-between items-start mb-1">
-                      <span className="text-[16px] text-neutral-500">
+                      <span className="text-[12px] text-neutral-500">
                         {formatTime(capture.created_at)}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[16px] text-neutral-600">
+                        <span className="text-[12px] text-neutral-600">
                           {capture.confidence.toFixed(0)}%
                         </span>
                         <button
@@ -264,7 +264,7 @@ export default function HistoryView() {
                         </button>
                       </div>
                     </div>
-                    <p className="text-xs text-neutral-300 leading-relaxed">
+                    <p className="text-neutral-300 leading-relaxed">
                       {truncate(capture.normalized_text || capture.ocr_text, 80)}
                     </p>
                     {capture.tags.length > 0 && (
@@ -272,7 +272,7 @@ export default function HistoryView() {
                         {capture.tags.map((t) => (
                           <span
                             key={t}
-                            className="text-[16px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded whitespace-nowrap shrink-0"
+                            className="text-[20px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded whitespace-nowrap shrink-0"
                           >
                             {t}
                           </span>
