@@ -125,7 +125,7 @@ export default function CardsView() {
           <div className="flex gap-1 overflow-x-auto scrollbar-visible">
             <button
               onClick={() => { setFilterLevel(null); setFilterTag(null); }}
-              className={`px-2 py-0.5 text-[14px] rounded whitespace-nowrap transition-colors shrink-0 ${
+              className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
                 !filterLevel && !filterTag ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
               }`}
             >
@@ -135,7 +135,7 @@ export default function CardsView() {
               <button
                 key={lv}
                 onClick={() => { setFilterLevel(String(lv)); setFilterTag(null); }}
-                className={`px-2 py-0.5 text-[14px] rounded whitespace-nowrap transition-colors shrink-0 ${
+                className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
                   filterLevel === String(lv) ? LEVEL_COLORS[lv] : "bg-neutral-800 text-neutral-400"
                 }`}
               >
@@ -146,7 +146,7 @@ export default function CardsView() {
               <button
                 key={tag.id}
                 onClick={() => { setFilterTag(tag.name); setFilterLevel(null); }}
-                className={`px-2 py-0.5 text-[14px] rounded whitespace-nowrap transition-colors shrink-0 ${
+                className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
                   filterTag === tag.name ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
                 }`}
               >
@@ -173,7 +173,7 @@ export default function CardsView() {
                 >
                   <div className="flex justify-between items-start">
                     <span className="text-sm font-medium text-neutral-200">{card.jp_text}</span>
-                    <span className={`text-[14px] px-1.5 py-0.5 rounded font-medium ${LEVEL_COLORS[level]}`}>
+                    <span className={`text-[16px] px-1.5 py-0.5 rounded font-medium ${LEVEL_COLORS[level]}`}>
                       {LEVEL_ROMAN[level]}
                     </span>
                   </div>
@@ -262,7 +262,7 @@ function TagChipsInput({
     <div className="relative">
       <div className="flex flex-wrap gap-1 p-1 bg-neutral-800 border border-neutral-700 rounded min-h-[32px] items-center">
         {selected.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 px-2 py-0.5 text-[11px] bg-blue-600 text-white rounded">
+          <span key={tag} className="flex items-center gap-1 px-2 py-0.5 text-[14px] bg-blue-600 text-white rounded">
             {tag}
             <button type="button" onClick={() => remove(tag)} className="hover:text-red-300 text-[10px] leading-none">
               &times;
@@ -323,27 +323,27 @@ function CardForm({
     <div className="p-4 space-y-3">
       <h3 className="text-sm font-semibold">New Card</h3>
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-0.5">Japanese</label>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Japanese</label>
         <input value={jpText} onChange={(e) => setJpText(e.target.value)}
           className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
       </div>
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-0.5">Reading</label>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Reading</label>
         <input value={reading} onChange={(e) => setReading(e.target.value)}
           className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
       </div>
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-0.5">Meaning</label>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Meaning</label>
         <input value={meaning} onChange={(e) => setMeaning(e.target.value)}
           className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
       </div>
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-0.5">Note</label>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">Note</label>
         <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
           className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300 resize-none" />
       </div>
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-1">Tags</label>
+        <label className="block text-[16px] text-neutral-500 mb-1">Tags</label>
         <TagChipsInput selected={tags} allTags={allTags} onChange={setTags} />
       </div>
       <div className="flex gap-2 pt-2">
@@ -396,11 +396,11 @@ function CardDetail({
 
       {/* Level */}
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-1">Level</label>
+        <label className="block text-[16px] text-neutral-500 mb-1">Level</label>
         <div className="flex gap-1">
           {LEVELS.map((lv) => (
             <button key={lv} onClick={() => onLevelChange(lv)}
-              className={`flex-1 py-1.5 text-[14px] rounded transition-colors ${
+              className={`flex-1 py-1.5 text-[16px] rounded transition-colors ${
                 level === lv ? LEVEL_COLORS[lv] : "bg-neutral-800 text-neutral-500 hover:text-neutral-300"
               }`}
               title={LEVEL_LABELS[lv]}
@@ -409,12 +409,12 @@ function CardDetail({
             </button>
           ))}
         </div>
-        <p className="text-[14px] text-neutral-600 mt-1">{LEVEL_LABELS[level]}</p>
+        <p className="text-[16px] text-neutral-600 mt-1">{LEVEL_LABELS[level]}</p>
       </div>
 
       {/* Tags */}
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-1">Tags</label>
+        <label className="block text-[16px] text-neutral-500 mb-1">Tags</label>
         <TagChipsInput selected={card.tags} allTags={allTags} onChange={onTagsChange} />
       </div>
     </div>
@@ -444,7 +444,7 @@ function EditableField({
     const cls = "w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200";
     return (
       <div>
-        <label className="block text-[14px] text-neutral-500 mb-0.5">{label}</label>
+        <label className="block text-[16px] text-neutral-500 mb-0.5">{label}</label>
         {multiline ? (
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave} rows={2}
             className={cls + " resize-none text-xs"} autoFocus />
@@ -459,7 +459,7 @@ function EditableField({
 
   return (
     <div onClick={() => { setDraft(value); setEditing(true); }} className="cursor-pointer group">
-      <label className="block text-[14px] text-neutral-500 mb-0.5">{label}</label>
+      <label className="block text-[16px] text-neutral-500 mb-0.5">{label}</label>
       <p className="text-sm text-neutral-300 group-hover:text-blue-400 transition-colors">
         {value || <span className="text-neutral-600 italic">Click to add</span>}
       </p>

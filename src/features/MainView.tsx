@@ -48,6 +48,10 @@ export default function MainView() {
   const [region, setRegion] = useState<Region | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
+  // Right-click pan
+  const [isPanning, setIsPanning] = useState(false);
+  const panStart = useRef({ x: 0, y: 0, scrollX: 0, scrollY: 0 });
+
   // Results
   const [results, setResults] = useState<CaptureEntry[]>([]);
   const [copied, setCopied] = useState<number | null>(null);
@@ -165,6 +169,15 @@ export default function MainView() {
       setIsFit(false);
       return;
     }
+    // Right click -> start panning
+    if (e.button === 2) {
+      e.preventDefault();
+      const c = containerRef.current;
+      if (!c) return;
+      setIsPanning(true);
+      panStart.current = { x: e.clientX, y: e.clientY, scrollX: c.scrollLeft, scrollY: c.scrollTop };
+      return;
+    }
     if (e.button !== 0) return;
     if (processing || !screenshotUrl) return;
     e.preventDefault();
@@ -175,6 +188,14 @@ export default function MainView() {
   }
 
   function handleMouseMove(e: React.MouseEvent) {
+    if (isPanning) {
+      e.preventDefault();
+      const c = containerRef.current;
+      if (!c) return;
+      c.scrollLeft = panStart.current.scrollX - (e.clientX - panStart.current.x);
+      c.scrollTop = panStart.current.scrollY - (e.clientY - panStart.current.y);
+      return;
+    }
     if (!isDragging || !region) return;
     e.preventDefault();
     const { x, y } = getImageCoords(e);
@@ -182,6 +203,10 @@ export default function MainView() {
   }
 
   async function handleMouseUp() {
+    if (isPanning) {
+      setIsPanning(false);
+      return;
+    }
     if (!isDragging || !region) return;
     setIsDragging(false);
 
@@ -295,13 +320,13 @@ export default function MainView() {
         } border-neutral-700`}
       >
         <div className="px-2 py-1 bg-neutral-800 border-b border-neutral-700 shrink-0">
-          <span className="text-[11px] text-neutral-500 font-medium">
+          <span className="text-[14px] text-neutral-500 font-medium">
             OCR Results ({results.length})
           </span>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-visible">
           {results.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-neutral-600 text-[11px] p-2 text-center">
+            <div className="flex items-center justify-center h-full text-neutral-600 text-[14px] p-2 text-center">
               Select a region to extract text
             </div>
           ) : (
@@ -360,7 +385,7 @@ export default function MainView() {
               >
                 {capturing ? "Capturing..." : "Capture"}
               </button>
-              <span className="text-[14px] text-neutral-500">Ctrl+Shift+X</span>
+              <span className="text-[16px] text-neutral-500">Ctrl+Shift+X</span>
 
               {screenshotUrl && (
                 <div className="flex items-center gap-1 ml-auto">
@@ -369,7 +394,7 @@ export default function MainView() {
                   <button onClick={() => doZoom(zoom / 1.25)} className="px-1.5 py-0.5 text-xs bg-neutral-700 hover:bg-neutral-600 rounded" title="Zoom out">-</button>
                   <button
                     onClick={() => { setZoom(calcFit()); setIsFit(true); }}
-                    className={`px-2 py-0.5 text-[14px] rounded ${isFit ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600 text-neutral-300"}`}
+                    className={`px-2 py-0.5 text-[16px] rounded ${isFit ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600 text-neutral-300"}`}
                     title="Fit to screen"
                   >
                     {Math.round(zoom * 100)}%
@@ -396,18 +421,16 @@ export default function MainView() {
               <div
                 ref={containerRef}
                 className="flex-1 min-w-0 overflow-auto bg-neutral-950 scrollbar-visible"
-                style={{ cursor: screenshotUrl ? "crosshair" : "default" }}
-                onMouseDown={(e) => {
-                  if (e.button === 1) { e.preventDefault(); setZoom(1); setIsFit(false); }
-                }}
+                style={{ cursor: isPanning ? "grabbing" : screenshotUrl ? "crosshair" : "default" }}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onContextMenu={(e) => e.preventDefault()}
               >
                 {screenshotUrl ? (
                   <div
                     className="relative"
                     style={{ width: dispW, height: dispH }}
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
                   >
                     <img
                       ref={imgRef}
@@ -433,7 +456,7 @@ export default function MainView() {
                     )}
                     {!region && !processing && (
                       <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 text-white/70 text-xs px-3 py-1 rounded pointer-events-none z-10">
-                        Drag to select · Scroll to zoom · Middle-click 100%
+                        Drag to select · Scroll to zoom · Right-drag to pan · Middle-click 100%
                       </div>
                     )}
                   </div>
