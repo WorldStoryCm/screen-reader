@@ -4,6 +4,8 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { Card, CreateCardInput } from "../../types/card";
 import { getCardLevel, LEVELS, LEVEL_LABELS, LEVEL_COLORS, LEVEL_ROMAN } from "../../types/card";
 import type { Token } from "../../lib/tokenizer";
+import { Button } from "@/components/button";
+import { Input } from "@/components/input";
 
 interface Props {
   token: Token;
@@ -111,119 +113,106 @@ export default function TokenPopover({
   };
 
   return (
-    <div ref={ref} style={style} className="w-[320px] bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl">
+    <div ref={ref} style={style} className="w-[320px] bg-popover border border-border rounded-lg shadow-xl">
       {loading ? (
-        <div className="p-3 text-xs text-neutral-500">Loading...</div>
+        <div className="p-3 text-sm text-muted-foreground">Loading...</div>
       ) : card && !showCreate ? (
         /* Existing card view */
         <div className="p-3 space-y-2">
           <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-neutral-100">{card.jp_text}</span>
+            <span className="text-sm font-medium text-foreground">{card.jp_text}</span>
           </div>
           {card.reading && (
-            <p className="text-[16px] text-neutral-400">{card.reading}</p>
+            <p className="text-xs text-muted-foreground">{card.reading}</p>
           )}
           {card.translation && (
-            <p className="text-[16px] text-neutral-200">{card.translation}</p>
+            <p className="text-xs text-foreground">{card.translation}</p>
           )}
           {card.meaning && (
-            <p className="text-[16px] text-neutral-400">{card.meaning}</p>
+            <p className="text-xs text-muted-foreground">{card.meaning}</p>
           )}
           {card.note && (
-            <p className="text-[14px] text-neutral-500 italic">{card.note}</p>
+            <p className="text-[11px] text-muted-foreground/70 italic">{card.note}</p>
           )}
 
           {/* Level selector */}
-          <p className="text-[14px] text-neutral-500">Learned level</p>
+          <p className="text-[11px] text-muted-foreground">Learned level</p>
           <div className="flex gap-1 items-center">
             {LEVELS.map((lv) => {
               const currentLevel = getCardLevel(card.status);
               const isActive = lv === currentLevel;
               return (
-                <button
+                <Button
                   key={lv}
-                  onClick={() => handleLevelChange(lv)}
-                  className={`flex-1 py-1 text-[12px] font-medium rounded transition-colors ${
-                    isActive ? LEVEL_COLORS[lv] : "bg-neutral-900 text-neutral-600 hover:text-neutral-400"
+                  variant="secondary"
+                  size="sm"
+                  className={`flex-1 h-7 text-[11px] font-medium ${
+                    isActive ? LEVEL_COLORS[lv] : "text-muted-foreground"
                   }`}
+                  onClick={() => handleLevelChange(lv)}
                   title={LEVEL_LABELS[lv]}
                 >
                   {LEVEL_ROMAN[lv]}
-                </button>
+                </Button>
               );
             })}
           </div>
 
           <div className="flex gap-1.5 pt-0.5">
-            <button
-              onClick={handleCopy}
-              className="px-2 py-1 text-[16px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
-            >
+            <Button variant="secondary" size="sm" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
-            </button>
+            </Button>
           </div>
         </div>
       ) : showCreate ? (
         /* Create card form */
         <div className="p-3 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-xs font-medium text-neutral-300">
-              New card: <span className="text-blue-400">{token.surface}</span>
+            <span className="text-sm font-medium text-secondary-foreground">
+              New card: <span className="text-primary">{token.surface}</span>
             </span>
           </div>
-          <input
+          <Input
             value={reading}
             onChange={(e) => setReading(e.target.value)}
             placeholder="Reading"
-            className="w-full px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-neutral-300"
             autoFocus
           />
-          <input
+          <Input
             value={translation}
             onChange={(e) => setTranslation(e.target.value)}
             placeholder="Translation"
-            className="w-full px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-neutral-300"
           />
-          <input
+          <Input
             value={meaning}
             onChange={(e) => setMeaning(e.target.value)}
             placeholder="Meaning / explanation"
-            className="w-full px-2 py-1 bg-neutral-900 border border-neutral-700 rounded text-xs text-neutral-300"
             onKeyDown={(e) => e.key === "Enter" && (translation || meaning) && handleCreateCard()}
           />
           <div className="flex gap-1.5">
-            <button
+            <Button
+              size="sm"
               onClick={handleCreateCard}
               disabled={saving || (!reading && !translation && !meaning)}
-              className="px-2 py-1 text-[16px] bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded transition-colors"
             >
               {saving ? "Saving..." : "Save Card"}
-            </button>
-            <button
-              onClick={() => setShowCreate(false)}
-              className="px-2 py-1 text-[16px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowCreate(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
         /* No card — show actions */
         <div className="p-3 space-y-4">
-          <p className="text-sm font-medium text-neutral-100">{token.surface}</p>
+          <p className="text-sm font-medium text-foreground">{token.surface}</p>
           <div className="flex gap-2">
-            <button
-              onClick={handleCopy}
-              className="px-2 py-1 text-[14px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
-            >
+            <Button variant="secondary" size="sm" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
-            </button>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="px-2 py-1 text-[14px] bg-blue-600 hover:bg-blue-500 rounded transition-colors"
-            >
+            </Button>
+            <Button size="sm" onClick={() => setShowCreate(true)}>
               + Create Card
-            </button>
+            </Button>
           </div>
         </div>
       )}

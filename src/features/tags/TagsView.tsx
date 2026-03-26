@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Tag } from "../../types/capture";
+import { Button } from "@/components/button";
+import { Input } from "@/components/input";
 
 export default function TagsView() {
   const [tags, setTags] = useState<Tag[]>([]);
@@ -82,7 +84,7 @@ export default function TagsView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         Loading...
       </div>
     );
@@ -90,34 +92,33 @@ export default function TagsView() {
 
   return (
     <div className="max-w-lg mx-auto p-4 space-y-4">
-      <h2 className="text-sm font-semibold text-neutral-300">Tags</h2>
+      <h2 className="text-sm font-semibold text-foreground">Tags</h2>
 
       {/* Create new tag */}
       <div className="flex gap-2">
-        <input
+        <Input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           placeholder="New tag name..."
-          className="flex-1 px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300"
+          className="flex-1"
         />
-        <button
+        <Button
           onClick={handleCreate}
           disabled={!newName.trim()}
-          className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded font-medium transition-colors"
         >
           Add
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p className="text-xs text-red-400">{error}</p>
+        <p className="text-sm text-destructive">{error}</p>
       )}
 
       {/* Tag list */}
-      <div className="border border-neutral-700 rounded divide-y divide-neutral-800">
+      <div className="border border-border rounded-md divide-y divide-border">
         {tags.length === 0 ? (
-          <div className="p-4 text-neutral-500 text-sm text-center">No tags yet</div>
+          <div className="p-4 text-muted-foreground text-sm text-center">No tags yet</div>
         ) : (
           tags.map((tag) => (
             <div
@@ -126,44 +127,42 @@ export default function TagsView() {
             >
               {editingId === tag.id ? (
                 <>
-                  <input
+                  <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleRename();
                       if (e.key === "Escape") setEditingId(null);
                     }}
-                    className="flex-1 px-2 py-0.5 bg-neutral-900 border border-neutral-600 rounded text-xs text-neutral-200"
+                    className="flex-1"
                     autoFocus
                   />
-                  <button
-                    onClick={handleRename}
-                    className="px-2 py-0.5 text-[16px] bg-green-700 hover:bg-green-600 rounded transition-colors"
-                  >
+                  <Button size="sm" className="bg-emerald-700 hover:bg-emerald-600 text-white" onClick={handleRename}>
                     Save
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="px-2 py-0.5 text-[16px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
-                  >
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => setEditingId(null)}>
                     Cancel
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
-                  <span className="flex-1 text-sm text-neutral-200">{tag.name}</span>
-                  <button
+                  <span className="flex-1 text-sm text-foreground">{tag.name}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground"
                     onClick={() => startEdit(tag)}
-                    className="px-2 py-0.5 text-[16px] bg-neutral-800 hover:bg-neutral-700 text-neutral-400 rounded opacity-0 group-hover:opacity-100 transition-all"
                   >
                     Rename
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
                     onClick={() => handleDelete(tag.id)}
-                    className="px-2 py-0.5 text-[16px] bg-red-900/50 hover:bg-red-800/50 text-red-400 rounded opacity-0 group-hover:opacity-100 transition-all"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
@@ -171,7 +170,7 @@ export default function TagsView() {
         )}
       </div>
 
-      <p className="text-[16px] text-neutral-600">
+      <p className="text-xs text-muted-foreground">
         {tags.length} tag{tags.length !== 1 ? "s" : ""}. Tags are shared between captures and cards.
       </p>
     </div>

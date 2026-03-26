@@ -4,6 +4,19 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import type { Card, CreateCardInput, CardSource } from "../../types/card";
 import { getCardLevel, LEVELS, LEVEL_LABELS, LEVEL_COLORS, LEVEL_ROMAN, CATEGORIES } from "../../types/card";
 import type { Tag } from "../../types/capture";
+import { Button } from "@/components/button";
+import { Input } from "@/components/input";
+import { Label } from "@/components/label";
+import { Textarea } from "@/components/textarea";
+import { Badge } from "@/components/badge";
+import { ScrollArea } from "@/components/scroll-area";
+import { Separator } from "@/components/separator";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/dropdown-menu";
 
 export default function CardsView() {
   const [cards, setCards] = useState<Card[]>([]);
@@ -151,91 +164,93 @@ export default function CardsView() {
   }
 
   if (loading) {
-    return <div className="flex items-center justify-center h-full text-neutral-500 text-sm">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+        Loading...
+      </div>
+    );
   }
 
   return (
     <div className="flex h-full">
       {/* Left: list */}
-      <div className="w-1/2 border-r border-neutral-700 flex flex-col">
+      <div className="w-1/2 min-w-0 border-r border-border flex flex-col">
         {/* Toolbar */}
-        <div className="p-2 border-b border-neutral-800 space-y-2 shrink-0">
+        <div className="p-2 border-b border-border space-y-2 shrink-0">
           <div className="flex gap-2">
-            <input
-              type="text"
+            <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search cards..."
-              className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300"
+              className="flex-1"
             />
-            <div className="relative group">
-              <button className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors">
-                Export
-              </button>
-              <div className="absolute hidden group-hover:block right-0 pt-0.5 z-20 min-w-[100px]">
-                <div className="bg-neutral-800 border border-neutral-700 rounded shadow-lg">
-                  <button onClick={handleExportJson} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-t">JSON</button>
-                  <button onClick={handleExportTsv} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-b">TSV</button>
-                </div>
-              </div>
-            </div>
-            <div className="relative group">
-              <button className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors">
-                Import
-              </button>
-              <div className="absolute hidden group-hover:block right-0 pt-0.5 z-20 min-w-[140px]">
-                <div className="bg-neutral-800 border border-neutral-700 rounded shadow-lg">
-                  <button onClick={() => handleImportJson("skip")} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-t">Skip existing</button>
-                  <button onClick={() => handleImportJson("update")} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left">Update existing</button>
-                  <button onClick={() => handleImportJson("new")} className="w-full px-3 py-1.5 text-xs text-neutral-300 hover:bg-neutral-700 text-left rounded-b">Import as new</button>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="px-3 py-0 text-xs bg-blue-600 hover:bg-blue-500 rounded transition-colors"
-            >
-              + New
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="sm">Export</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportJson}>JSON</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportTsv}>TSV</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="sm">Import</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleImportJson("skip")}>Skip existing</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleImportJson("update")}>Update existing</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleImportJson("new")}>Import as new</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" onClick={() => setShowCreate(true)}>+ New</Button>
           </div>
-          <div className="flex gap-1 overflow-x-auto scrollbar-visible">
-            <button
+          <div className="flex gap-1 items-center">
+            <Button
+              variant={!filterLevel && !filterTag ? "default" : "secondary"}
+              size="sm"
+              className="h-7 px-2 text-xs"
               onClick={() => { setFilterLevel(null); setFilterTag(null); }}
-              className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
-                !filterLevel && !filterTag ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
-              }`}
             >
               All
-            </button>
+            </Button>
             {LEVELS.map((lv) => (
-              <button
+              <Button
                 key={lv}
+                variant="secondary"
+                size="sm"
+                className={`h-7 px-2 text-xs ${filterLevel === String(lv) ? LEVEL_COLORS[lv] : ""}`}
                 onClick={() => { setFilterLevel(String(lv)); setFilterTag(null); }}
-                className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
-                  filterLevel === String(lv) ? LEVEL_COLORS[lv] : "bg-neutral-800 text-neutral-400"
-                }`}
               >
                 {LEVEL_ROMAN[lv]}
-              </button>
+              </Button>
             ))}
-            {allTags.slice(0, 6).map((tag) => (
-              <button
-                key={tag.id}
-                onClick={() => { setFilterTag(tag.name); setFilterLevel(null); }}
-                className={`px-2 py-0.5 text-[16px] rounded whitespace-nowrap transition-colors shrink-0 ${
-                  filterTag === tag.name ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"
-                }`}
+            {allTags.length > 0 && (
+              <Select
+                value={filterTag || ""}
+                onValueChange={(val) => {
+                  if (val === "__all__") { setFilterTag(null); }
+                  else { setFilterTag(val); setFilterLevel(null); }
+                }}
               >
-                {tag.name}
-              </button>
-            ))}
+                <SelectTrigger className={`h-7 w-auto min-w-[70px] text-xs ${filterTag ? "border-primary text-primary" : ""}`}>
+                  <SelectValue placeholder="Tag..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All tags</SelectItem>
+                  {allTags.map((tag) => (
+                    <SelectItem key={tag.id} value={tag.name}>{tag.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
         {/* Card list */}
-        <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1">
           {cards.length === 0 ? (
-            <div className="p-4 text-neutral-500 text-sm text-center">No cards yet</div>
+            <div className="p-4 text-muted-foreground text-sm text-center">No cards yet</div>
           ) : (
             cards.map((card) => {
               const level = getCardLevel(card.status);
@@ -243,39 +258,39 @@ export default function CardsView() {
                 <div
                   key={card.id}
                   onClick={() => setSelected(card)}
-                  className={`p-3 border-b border-neutral-800 cursor-pointer transition-colors ${
-                    selected?.id === card.id ? "bg-neutral-800" : "hover:bg-neutral-800/50"
+                  className={`p-3 border-b border-border cursor-pointer transition-colors ${
+                    selected?.id === card.id ? "bg-accent" : "hover:bg-accent/50"
                   }`}
                 >
                   <div className="flex justify-between items-start">
-                    <span className="text-sm font-medium text-neutral-200">{card.jp_text}</span>
-                    <span className={`text-[16px] px-1.5 py-0.5 rounded font-medium ${LEVEL_COLORS[level]}`}>
+                    <span className="text-sm font-medium text-foreground">{card.jp_text}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${LEVEL_COLORS[level]}`}>
                       {LEVEL_ROMAN[level]}
                     </span>
                   </div>
                   {card.reading && (
-                    <p className="text-xs text-neutral-400 mt-0.5">{card.reading}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">{card.reading}</p>
                   )}
                   {card.translation && (
-                    <p className="text-xs text-neutral-300 mt-0.5">{card.translation}</p>
+                    <p className="text-sm text-secondary-foreground mt-0.5">{card.translation}</p>
                   )}
                   {card.meaning && (
-                    <p className="text-xs text-neutral-500 mt-0.5">{card.meaning}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{card.meaning}</p>
                   )}
                   {(card.category || card.tags.length > 0) && (
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="flex flex-wrap gap-1 mt-1.5">
                       {card.category && (
-                        <span className="text-[10px] px-1 py-0 bg-purple-900/40 text-purple-300 rounded">{card.category}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 bg-purple-900/40 text-purple-300 rounded-full">{card.category}</span>
                       )}
                       {card.tags.map((t) => (
-                        <span key={t} className="text-[10px] px-1 py-0 bg-blue-900/40 text-blue-300 rounded">{t}</span>
+                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded-full">{t}</span>
                       ))}
                     </div>
                   )}
                   {card.sources.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1">
                       {card.sources.map((s) => (
-                        <span key={s.source_id} className="text-[10px] px-1 py-0 bg-emerald-900/40 text-emerald-300 rounded">{s.source_name}</span>
+                        <span key={s.source_id} className="text-[10px] px-1.5 py-0.5 bg-emerald-900/40 text-emerald-300 rounded-full">{s.source_name}</span>
                       ))}
                     </div>
                   )}
@@ -283,7 +298,7 @@ export default function CardsView() {
               );
             })
           )}
-        </div>
+        </ScrollArea>
       </div>
 
       {/* Right: detail or create */}
@@ -306,7 +321,7 @@ export default function CardsView() {
             onSourceRemove={(id) => handleSourceRemove(selected, id)}
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-neutral-600 text-sm">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             Select a card or create a new one
           </div>
         )}
@@ -351,14 +366,14 @@ function TagChipsInput({
 
   return (
     <div className="relative">
-      <div className="flex flex-wrap gap-1 p-1 bg-neutral-800 border border-neutral-700 rounded min-h-[32px] items-center">
+      <div className="flex flex-wrap gap-1 p-1.5 bg-background border border-input rounded-md min-h-[36px] items-center focus-within:ring-1 focus-within:ring-ring">
         {selected.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 px-2 py-0.5 text-[14px] bg-blue-600 text-white rounded">
+          <Badge key={tag} className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full ring-0">
             {tag}
-            <button type="button" onClick={() => remove(tag)} className="hover:text-red-300 text-[10px] leading-none">
+            <button type="button" onClick={() => remove(tag)} className="ml-1 hover:text-destructive text-[10px] leading-none">
               &times;
             </button>
-          </span>
+          </Badge>
         ))}
         <input
           ref={inputRef}
@@ -368,18 +383,18 @@ function TagChipsInput({
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={handleKeyDown}
           placeholder={selected.length === 0 ? "Add tags..." : ""}
-          className="flex-1 min-w-[60px] bg-transparent text-xs text-neutral-300 outline-none px-1 py-0.5"
+          className="flex-1 min-w-[60px] bg-transparent text-sm text-foreground outline-none px-1 py-0.5 placeholder:text-muted-foreground"
         />
       </div>
       {open && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full bg-neutral-800 border border-neutral-700 rounded shadow-lg max-h-[120px] overflow-y-auto">
+        <div className="absolute z-20 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-[120px] overflow-y-auto">
           {suggestions.map((tag) => (
             <button
               key={tag.id}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => add(tag.name)}
-              className="w-full px-2 py-1 text-xs text-neutral-300 hover:bg-neutral-700 text-left"
+              className="w-full px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent text-left transition-colors"
             >
               {tag.name}
             </button>
@@ -413,57 +428,61 @@ function CardForm({
   const [tags, setTags] = useState<string[]>([]);
 
   return (
-    <div className="p-4 space-y-3">
-      <h3 className="text-sm font-semibold">New Card</h3>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Japanese</label>
-        <input value={jpText} onChange={(e) => setJpText(e.target.value)}
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
+    <div className="p-4 space-y-4">
+      <h3 className="text-sm font-semibold text-foreground">New Card</h3>
+      <Separator />
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Japanese</Label>
+        <Input value={jpText} onChange={(e) => setJpText(e.target.value)} />
       </div>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Reading</label>
-        <input value={reading} onChange={(e) => setReading(e.target.value)}
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Reading</Label>
+        <Input value={reading} onChange={(e) => setReading(e.target.value)} />
       </div>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Translation</label>
-        <input value={translation} onChange={(e) => setTranslation(e.target.value)}
-          placeholder="Direct translation"
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Translation</Label>
+        <Input value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder="Direct translation" />
       </div>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Meaning</label>
-        <input value={meaning} onChange={(e) => setMeaning(e.target.value)}
-          placeholder="Definition / explanation"
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200" />
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Meaning</Label>
+        <Input value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder="Definition / explanation" />
       </div>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Category</label>
-        <select value={category} onChange={(e) => setCategory(e.target.value)}
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200">
-          <option value="">None</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Category</Label>
+        <Select value={category} onValueChange={setCategory}>
+          <SelectTrigger>
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Note</label>
-        <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300 resize-none" />
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Note</Label>
+        <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="resize-none" />
       </div>
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-1">Tags</label>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Tags</Label>
         <TagChipsInput selected={tags} allTags={allTags} onChange={setTags} />
       </div>
-      <div className="flex gap-2 pt-2">
-        <button onClick={() => onSave({ jp_text: jpText, reading, meaning, translation: translation || null, note: note || null, category: category || null, source_capture_id: initialCaptureId, source_text_fragment: null, tags })}
+      <Separator />
+      <div className="flex gap-2">
+        <Button
+          onClick={() => onSave({
+            jp_text: jpText, reading, meaning,
+            translation: translation || null,
+            note: note || null,
+            category: (category && category !== "__none__") ? category : null,
+            source_capture_id: initialCaptureId,
+            source_text_fragment: null, tags,
+          })}
           disabled={!jpText.trim()}
-          className="px-4 py-1.5 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded font-medium transition-colors">
+        >
           Save
-        </button>
-        <button onClick={onCancel}
-          className="px-4 py-1.5 text-xs bg-neutral-700 hover:bg-neutral-600 rounded transition-colors">
-          Cancel
-        </button>
+        </Button>
+        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
   );
@@ -494,53 +513,57 @@ function CardDetail({
   return (
     <div className="p-4 space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-neutral-200">{card.jp_text}</h3>
-        <button onClick={onDelete}
-          className="px-2 py-1 text-xs bg-red-900/50 hover:bg-red-800/50 text-red-400 rounded transition-colors">
-          Delete
-        </button>
+        <h3 className="text-lg font-medium text-foreground">{card.jp_text}</h3>
+        <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
       </div>
 
-      {/* Editable fields */}
+      <Separator />
+
       <EditableField label="Reading" value={card.reading} onSave={(v) => onSave("reading", v)} />
       <EditableField label="Translation" value={card.translation} onSave={(v) => onSave("translation", v)} />
       <EditableField label="Meaning" value={card.meaning} onSave={(v) => onSave("meaning", v)} />
       <EditableField label="Note" value={card.note || ""} onSave={(v) => onSave("note", v)} multiline />
 
       {/* Category */}
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">Category</label>
-        <select
-          value={card.category || ""}
-          onChange={(e) => onSave("category", e.target.value)}
-          className="w-full px-2 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200"
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Category</Label>
+        <Select
+          value={card.category || "__none__"}
+          onValueChange={(val) => onSave("category", val === "__none__" ? "" : val)}
         >
-          <option value="">None</option>
-          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select>
+          <SelectTrigger>
+            <SelectValue placeholder="None" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">None</SelectItem>
+            {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Level */}
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-1">Level</label>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Level</Label>
         <div className="flex gap-1">
           {LEVELS.map((lv) => (
-            <button key={lv} onClick={() => onLevelChange(lv)}
-              className={`flex-1 py-1.5 text-[16px] rounded transition-colors ${
-                level === lv ? LEVEL_COLORS[lv] : "bg-neutral-800 text-neutral-500 hover:text-neutral-300"
-              }`}
+            <Button
+              key={lv}
+              variant="secondary"
+              size="sm"
+              className={`flex-1 ${level === lv ? LEVEL_COLORS[lv] : "text-muted-foreground"}`}
+              onClick={() => onLevelChange(lv)}
               title={LEVEL_LABELS[lv]}
             >
               {LEVEL_ROMAN[lv]}
-            </button>
+            </Button>
           ))}
         </div>
-        <p className="text-[16px] text-neutral-600 mt-1">{LEVEL_LABELS[level]}</p>
+        <p className="text-xs text-muted-foreground">{LEVEL_LABELS[level]}</p>
       </div>
 
       {/* Tags */}
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-1">Tags</label>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">Tags</Label>
         <TagChipsInput selected={card.tags} allTags={allTags} onChange={onTagsChange} />
       </div>
 
@@ -565,41 +588,57 @@ function SourcesSection({
   const [newName, setNewName] = useState("");
 
   return (
-    <div>
-      <label className="block text-[16px] text-neutral-500 mb-1">Sources</label>
+    <div className="space-y-1.5">
+      <Label className="text-muted-foreground">Sources</Label>
       {sources.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-2">
           {sources.map((s) => (
-            <span key={s.source_id} className="flex items-center gap-1 px-2 py-0.5 text-[14px] bg-emerald-900/40 text-emerald-300 rounded">
+            <span key={s.source_id} className="flex items-center gap-1 px-2 py-0.5 text-xs bg-emerald-900/40 text-emerald-300 rounded-full">
               <span className="text-[10px] text-emerald-500">{s.source_type}</span>
               {s.source_name}
-              <button onClick={() => onRemove(s.source_id)} className="hover:text-red-300 text-[10px] leading-none">&times;</button>
+              <button onClick={() => onRemove(s.source_id)} className="hover:text-destructive text-[10px] leading-none">&times;</button>
             </span>
           ))}
         </div>
       )}
       {adding ? (
-        <div className="flex gap-1 items-center">
-          <select value={newType} onChange={(e) => setNewType(e.target.value)}
-            className="px-1.5 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300">
-            <option value="game">game</option>
-            <option value="manual">manual</option>
-            <option value="import">import</option>
-            <option value="other">other</option>
-          </select>
-          <input value={newName} onChange={(e) => setNewName(e.target.value)}
+        <div className="flex gap-1.5 items-center">
+          <Select value={newType} onValueChange={setNewType}>
+            <SelectTrigger className="w-[100px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="game">game</SelectItem>
+              <SelectItem value="manual">manual</SelectItem>
+              <SelectItem value="import">import</SelectItem>
+              <SelectItem value="other">other</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
             placeholder="Source name"
-            className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300"
-            onKeyDown={(e) => { if (e.key === "Enter" && newName.trim()) { onAdd(newType, newName.trim()); setNewName(""); setAdding(false); } }}
-            autoFocus />
-          <button onClick={() => { if (newName.trim()) { onAdd(newType, newName.trim()); setNewName(""); setAdding(false); } }}
-            className="px-2 py-1 text-[16px] bg-emerald-700 hover:bg-emerald-600 rounded transition-colors">Add</button>
-          <button onClick={() => setAdding(false)}
-            className="px-2 py-1 text-[16px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors">Cancel</button>
+            className="flex-1"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && newName.trim()) {
+                onAdd(newType, newName.trim()); setNewName(""); setAdding(false);
+              }
+            }}
+            autoFocus
+          />
+          <Button
+            size="sm"
+            className="bg-emerald-700 hover:bg-emerald-600 text-white"
+            onClick={() => { if (newName.trim()) { onAdd(newType, newName.trim()); setNewName(""); setAdding(false); } }}
+          >
+            Add
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
         </div>
       ) : (
-        <button onClick={() => setAdding(true)}
-          className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">+ Add source</button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAdding(true)}>
+          + Add source
+        </Button>
       )}
     </div>
   );
@@ -625,27 +664,26 @@ function EditableField({
   }
 
   if (editing) {
-    const cls = "w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-200";
     return (
-      <div>
-        <label className="block text-[16px] text-neutral-500 mb-0.5">{label}</label>
+      <div className="space-y-1.5">
+        <Label className="text-muted-foreground">{label}</Label>
         {multiline ? (
-          <textarea value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave} rows={2}
-            className={cls + " resize-none text-xs"} autoFocus />
+          <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave} rows={2}
+            className="resize-none" autoFocus />
         ) : (
-          <input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave}
+          <Input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            className={cls} autoFocus />
+            autoFocus />
         )}
       </div>
     );
   }
 
   return (
-    <div onClick={() => { setDraft(value); setEditing(true); }} className="cursor-pointer group">
-      <label className="block text-[16px] text-neutral-500 mb-0.5">{label}</label>
-      <p className="text-sm text-neutral-300 group-hover:text-blue-400 transition-colors">
-        {value || <span className="text-neutral-600 italic">Click to add</span>}
+    <div onClick={() => { setDraft(value); setEditing(true); }} className="cursor-pointer group space-y-1">
+      <Label className="text-muted-foreground">{label}</Label>
+      <p className="text-sm text-secondary-foreground group-hover:text-primary transition-colors">
+        {value || <span className="text-muted-foreground italic">Click to add</span>}
       </p>
     </div>
   );

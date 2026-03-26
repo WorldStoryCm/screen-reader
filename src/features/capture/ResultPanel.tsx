@@ -3,6 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import type { CaptureResult } from "../../types/ocr";
+import { Button } from "@/components/button";
 
 export default function ResultPanel() {
   const [result, setResult] = useState<CaptureResult | null>(null);
@@ -97,20 +98,20 @@ export default function ResultPanel() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 w-96 max-h-[50vh] bg-neutral-900 border border-neutral-700 rounded-lg shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed bottom-4 right-4 w-96 max-h-[50vh] bg-card border border-border rounded-lg shadow-2xl flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 bg-neutral-800 border-b border-neutral-700 cursor-move">
-        <span className="text-xs text-neutral-400 font-medium">
+      <div className="flex items-center justify-between px-3 py-2 bg-card border-b border-border cursor-move">
+        <span className="text-sm text-muted-foreground font-medium">
           OCR Result
           {result && (
-            <span className="ml-2 text-neutral-500">
+            <span className="ml-2 text-muted-foreground/60">
               {result.ocrResult.confidence.toFixed(0)}% conf
             </span>
           )}
         </span>
         <button
           onClick={() => { setResult(null); setError(null); }}
-          className="text-neutral-500 hover:text-neutral-300 text-sm"
+          className="text-muted-foreground hover:text-foreground text-sm"
         >
           ×
         </button>
@@ -118,7 +119,7 @@ export default function ResultPanel() {
 
       {/* Error state */}
       {error && (
-        <div className="p-3 text-red-400 text-sm">{error}</div>
+        <div className="p-3 text-destructive text-sm">{error}</div>
       )}
 
       {/* Text content */}
@@ -130,8 +131,8 @@ export default function ResultPanel() {
               onClick={() => setSelectedLine(i === selectedLine ? null : i)}
               className={`px-2 py-1 rounded text-sm cursor-pointer transition-colors ${
                 i === selectedLine
-                  ? "bg-blue-600/30 text-blue-200"
-                  : "hover:bg-neutral-800 text-neutral-200"
+                  ? "bg-primary/20 text-primary"
+                  : "hover:bg-accent text-foreground"
               }`}
             >
               {line}
@@ -141,32 +142,22 @@ export default function ResultPanel() {
       )}
 
       {/* Actions */}
-      <div className="flex gap-2 px-3 py-2 border-t border-neutral-700 bg-neutral-800">
-        <button
-          onClick={copyAll}
-          disabled={!result}
-          className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded font-medium transition-colors"
-        >
+      <div className="flex gap-2 px-3 py-2 border-t border-border bg-card">
+        <Button size="sm" onClick={copyAll} disabled={!result}>
           {copied ? "Copied!" : "Copy All"}
-        </button>
+        </Button>
         {selectedLine !== null && (
-          <button
-            onClick={copyLine}
-            className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors"
-          >
+          <Button variant="secondary" size="sm" onClick={copyLine}>
             Copy Line
-          </button>
+          </Button>
         )}
-        <button
-          onClick={handleRecapture}
-          className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded font-medium transition-colors"
-        >
+        <Button variant="secondary" size="sm" onClick={handleRecapture}>
           Recapture
-        </button>
+        </Button>
       </div>
 
       {/* Keyboard hints */}
-      <div className="px-3 py-1 border-t border-neutral-800 text-[16px] text-neutral-600">
+      <div className="px-3 py-1 border-t border-border text-xs text-muted-foreground/60">
         Enter: copy all · R: recapture · Esc: close
       </div>
     </div>

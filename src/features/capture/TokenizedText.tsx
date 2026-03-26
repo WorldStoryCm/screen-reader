@@ -84,9 +84,9 @@ export default function TokenizedText({ text, captureId, onTokenSelect }: Props)
             onMouseLeave={() => setHovered(null)}
             className={`px-0.5 rounded cursor-pointer transition-colors text-sm border-b ${
               popover?.index === i
-                ? "bg-blue-600/40 text-blue-200 border-blue-400"
+                ? "bg-amber-600/40 text-amber-200 border-amber-400"
                 : hovered === i
-                  ? "bg-blue-600/30 text-blue-200 border-blue-400"
+                  ? "bg-amber-600/30 text-amber-200 border-amber-400"
                   : level
                     ? `${levelColor} border-current`
                     : "hover:bg-neutral-700 text-neutral-200 border-transparent"

@@ -55,7 +55,7 @@ export const LEVEL_LABELS: Record<CardLevel, string> = {
 
 export const LEVEL_COLORS: Record<CardLevel, string> = {
   1: "bg-neutral-700 text-neutral-300",
-  2: "bg-blue-900/50 text-blue-300",
+  2: "bg-amber-900/50 text-amber-300",
   3: "bg-yellow-900/50 text-yellow-300",
   4: "bg-emerald-900/50 text-emerald-300",
   5: "bg-green-800/50 text-green-300",
@@ -64,7 +64,7 @@ export const LEVEL_COLORS: Record<CardLevel, string> = {
 /** Color for token highlight in text based on card level */
 export const LEVEL_TOKEN_COLORS: Record<CardLevel, string> = {
   1: "bg-neutral-700/40 text-neutral-300",
-  2: "bg-blue-900/30 text-blue-200",
+  2: "bg-amber-900/30 text-amber-200",
   3: "bg-yellow-900/30 text-yellow-200",
   4: "bg-emerald-900/30 text-emerald-200",
   5: "bg-green-900/30 text-green-200",

@@ -5,6 +5,14 @@ import type { Capture, Tag } from "../../types/capture";
 import type { OcrResult } from "../../types/ocr";
 import TokenizedText from "../capture/TokenizedText";
 import { PRESETS } from "../../types/capture";
+import { Button } from "@/components/button";
+import { Label } from "@/components/label";
+import { Textarea } from "@/components/textarea";
+import { ScrollArea } from "@/components/scroll-area";
+import { Separator } from "@/components/separator";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/select";
 
 interface DateGroup {
   label: string;
@@ -51,7 +59,8 @@ export default function HistoryView() {
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [allTags, setAllTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Capture | null>(null);
-  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [filterTag, _setFilterTag] = useState<string | null>(null);
+  void _setFilterTag;
   const [loading, setLoading] = useState(true);
 
   // Edit states
@@ -186,7 +195,7 @@ export default function HistoryView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-neutral-500 text-sm">
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
         Loading...
       </div>
     );
@@ -195,45 +204,18 @@ export default function HistoryView() {
   return (
     <div className="flex h-full">
       {/* Left: list */}
-      <div className="w-1/2 border-r border-neutral-700 flex flex-col">
-        {/* Tag filter bar — horizontal scroll */}
-        <div className="flex gap-1 p-2 border-b border-neutral-800 overflow-x-auto shrink-0 scrollbar-visible">
-          <button
-            onClick={() => setFilterTag(null)}
-            className={`px-2 py-0.5 text-[14px] rounded whitespace-nowrap transition-colors shrink-0 ${
-              filterTag === null
-                ? "bg-amber-600 text-white"
-                : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-            }`}
-          >
-            All
-          </button>
-          {allTags.map((tag) => (
-            <button
-              key={tag.id}
-              onClick={() => setFilterTag(tag.name)}
-              className={`px-2 py-1 text-[12px] rounded whitespace-nowrap transition-colors shrink-0 ${
-                filterTag === tag.name
-                  ? "bg-orange-600 text-white"
-                  : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-              }`}
-            >
-              {tag.name}
-            </button>
-          ))}
-        </div>
-
+      <div className="w-1/2 min-w-0 border-r border-border flex flex-col">
         {/* Capture list grouped by date */}
-        <div className="flex-1 overflow-y-auto">
+        <ScrollArea className="flex-1">
           {captures.length === 0 ? (
-            <div className="p-4 text-neutral-500 text-sm text-center">
+            <div className="p-4 text-muted-foreground text-sm text-center">
               {filterTag ? `No captures tagged "${filterTag}"` : "No captures yet"}
             </div>
           ) : (
             dateGroups.map((group) => (
               <div key={group.label}>
-                <div className="px-3 py-1.5 bg-neutral-850 border-b border-neutral-800 sticky top-0 z-10 bg-neutral-900">
-                  <span className="text-[12px] font-semibold text-neutral-500 uppercase tracking-wide">
+                <div className="px-3 py-1.5 border-b border-border sticky top-0 z-10 bg-card">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     {group.label}
                   </span>
                 </div>
@@ -241,30 +223,30 @@ export default function HistoryView() {
                   <div
                     key={capture.id}
                     onClick={() => selectCapture(capture)}
-                    className={`group p-3 border-b border-neutral-800 cursor-pointer transition-colors ${
+                    className={`group p-3 border-b border-border cursor-pointer transition-colors ${
                       selected?.id === capture.id
-                        ? "bg-neutral-800"
-                        : "hover:bg-neutral-800/50"
+                        ? "bg-accent"
+                        : "hover:bg-accent/50"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-1">
-                      <span className="text-[12px] text-neutral-500">
+                      <span className="text-xs text-muted-foreground">
                         {formatTime(capture.created_at)}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-[12px] text-neutral-600">
+                        <span className="text-xs text-muted-foreground/60">
                           {capture.confidence.toFixed(0)}%
                         </span>
                         <button
                           onClick={(e) => handleDelete(capture.id, e)}
-                          className="text-[16px] px-2  text-red-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          className="text-base px-2 text-destructive opacity-0 group-hover:opacity-100 transition-all"
                           title="Delete"
                         >
                           ×
                         </button>
                       </div>
                     </div>
-                    <p className="text-neutral-300 leading-relaxed">
+                    <p className="text-sm text-secondary-foreground leading-relaxed">
                       {truncate(capture.normalized_text || capture.ocr_text, 80)}
                     </p>
                     {capture.tags.length > 0 && (
@@ -272,7 +254,7 @@ export default function HistoryView() {
                         {capture.tags.map((t) => (
                           <span
                             key={t}
-                            className="text-[20px] px-1.5 py-0.5 bg-blue-900/40 text-blue-300 rounded whitespace-nowrap shrink-0"
+                            className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded-full whitespace-nowrap shrink-0"
                           >
                             {t}
                           </span>
@@ -284,7 +266,7 @@ export default function HistoryView() {
               </div>
             ))
           )}
-        </div>
+        </ScrollArea>
       </div>
 
       {/* Right: detail */}
@@ -293,50 +275,59 @@ export default function HistoryView() {
           <div className="p-4 space-y-4">
             {/* Header */}
             <div className="flex justify-between items-center">
-              <span className="text-xs text-neutral-500">
+              <span className="text-sm text-muted-foreground">
                 {(() => {
                   const secs = parseFloat(selected.created_at);
                   return isNaN(secs) ? selected.created_at : new Date(secs * 1000).toLocaleString();
                 })()}
               </span>
               <div className="flex gap-2">
-                <button
+                <Button
+                  size="sm"
                   onClick={() =>
                     writeText(selected.normalized_text || selected.ocr_text)
                   }
-                  className="px-2 py-1 text-xs bg-blue-600 hover:bg-blue-500 rounded transition-colors"
                 >
                   Copy
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
                   onClick={() => handleDelete(selected.id)}
-                  className="px-2 py-1 text-xs bg-red-900/50 hover:bg-red-800/50 text-red-400 rounded transition-colors"
                 >
                   Delete
-                </button>
+                </Button>
               </div>
             </div>
 
+            <Separator />
+
             {/* OCR text */}
             <div>
-              <div className="flex gap-2 mb-1">
-                <button onClick={() => setShowTokens(false)}
-                  className={`text-[16px] px-2 py-0.5 rounded transition-colors ${!showTokens ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"}`}>
+              <div className="flex gap-2 mb-2">
+                <Button
+                  variant={!showTokens ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setShowTokens(false)}
+                >
                   Raw
-                </button>
-                <button onClick={() => setShowTokens(true)}
-                  className={`text-[16px] px-2 py-0.5 rounded transition-colors ${showTokens ? "bg-blue-600 text-white" : "bg-neutral-800 text-neutral-400"}`}>
+                </Button>
+                <Button
+                  variant={showTokens ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setShowTokens(true)}
+                >
                   Tokens
-                </button>
+                </Button>
               </div>
-              <div className="bg-neutral-800 rounded p-3">
+              <div className="bg-card rounded-md p-3 border border-border">
                 {showTokens ? (
                   <TokenizedText
                     text={selected.normalized_text || selected.ocr_text}
                     captureId={selected.id}
                   />
                 ) : (
-                  <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed font-mono">
+                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-mono">
                     {selected.normalized_text || selected.ocr_text || "(empty)"}
                   </p>
                 )}
@@ -344,87 +335,82 @@ export default function HistoryView() {
             </div>
 
             {/* OCR retry */}
-            <div>
-              <label className="block text-[16px] text-neutral-500 mb-1">
-                Rerun OCR with preset
-              </label>
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Rerun OCR with preset</Label>
               <div className="flex gap-2">
-                <select
-                  value={rerunPreset}
-                  onChange={(e) => setRerunPreset(e.target.value)}
-                  className="flex-1 px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300"
-                >
-                  {PRESETS.map((p) => (
-                    <option key={p} value={p}>
-                      {p.replace(/_/g, " ")}
-                    </option>
-                  ))}
-                </select>
-                <button
+                <Select value={rerunPreset} onValueChange={setRerunPreset}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRESETS.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p.replace(/_/g, " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="secondary"
+                  size="sm"
                   onClick={handleRerunOcr}
                   disabled={rerunning}
-                  className="px-3 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 disabled:opacity-50 rounded transition-colors"
                 >
                   {rerunning ? "Running..." : "Rerun"}
-                </button>
+                </Button>
               </div>
             </div>
 
             {/* Tags */}
-            <div>
-              <label className="block text-[16px] text-neutral-500 mb-1">
-                Tags
-              </label>
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Tags</Label>
               <div className="flex gap-1 overflow-x-auto scrollbar-visible pb-1">
                 {allTags.map((tag) => (
-                  <button
+                  <Button
                     key={tag.id}
+                    variant={editTags.includes(tag.name) ? "default" : "secondary"}
+                    size="sm"
+                    className="h-7 text-xs shrink-0"
                     onClick={() => toggleTag(tag.name)}
-                    className={`px-2 py-0.5 text-[16px] rounded transition-colors whitespace-nowrap shrink-0 ${
-                      editTags.includes(tag.name)
-                        ? "bg-blue-600 text-white"
-                        : "bg-neutral-800 text-neutral-400 hover:bg-neutral-700"
-                    }`}
                   >
                     {tag.name}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {JSON.stringify(editTags) !==
                 JSON.stringify(selected.tags) && (
-                <button
+                <Button
+                  size="sm"
+                  className="bg-emerald-700 hover:bg-emerald-600 text-white"
                   onClick={handleSaveTags}
-                  className="mt-1 px-2 py-1 text-[16px] bg-green-700 hover:bg-green-600 rounded transition-colors"
                 >
                   Save tags
-                </button>
+                </Button>
               )}
             </div>
 
             {/* Note */}
-            <div>
-              <label className="block text-[16px] text-neutral-500 mb-1">
-                Note
-              </label>
-              <textarea
+            <div className="space-y-1.5">
+              <Label className="text-muted-foreground">Note</Label>
+              <Textarea
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
                 onBlur={handleSaveNote}
                 rows={3}
-                className="w-full px-2 py-1 bg-neutral-800 border border-neutral-700 rounded text-xs text-neutral-300 resize-none"
+                className="resize-none"
                 placeholder="Add a note..."
               />
             </div>
 
             {/* Meta */}
-            <div className="text-[16px] text-neutral-600 space-y-0.5">
+            <div className="text-xs text-muted-foreground/60 space-y-0.5">
               <p>Preset: {selected.preprocess_preset}</p>
               <p>Engine: {selected.ocr_engine}</p>
               <p>Confidence: {selected.confidence.toFixed(1)}%</p>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-neutral-600 text-sm">
+          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
             Select a capture to view details
           </div>
         )}

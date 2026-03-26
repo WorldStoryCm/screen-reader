@@ -8,6 +8,7 @@ import HistoryView from "./history/HistoryView";
 import CardsView from "./cards/CardsView";
 import SettingsView from "./settings/SettingsView";
 import TagsView from "./tags/TagsView";
+import { Button } from "@/components/button";
 
 interface Region {
   startX: number;
@@ -149,7 +150,6 @@ export default function MainView() {
     if (!img) return;
     setNatW(img.naturalWidth);
     setNatH(img.naturalHeight);
-    // Calc initial fit
     const c = containerRef.current;
     if (c) {
       const fit = Math.min(c.clientWidth / img.naturalWidth, c.clientHeight / img.naturalHeight, 1);
@@ -163,11 +163,9 @@ export default function MainView() {
     setIsFit(false);
   }
 
-  // Displayed pixel size
   const dispW = natW * zoom;
   const dispH = natH * zoom;
 
-  // Mouse coords relative to img element
   function getImageCoords(e: React.MouseEvent) {
     const img = imgRef.current;
     if (!img) return { x: 0, y: 0 };
@@ -176,14 +174,12 @@ export default function MainView() {
   }
 
   function handleMouseDown(e: React.MouseEvent) {
-    // Middle click -> reset to 100%
     if (e.button === 1) {
       e.preventDefault();
       setZoom(1);
       setIsFit(false);
       return;
     }
-    // Right click -> start panning
     if (e.button === 2) {
       e.preventDefault();
       const c = containerRef.current;
@@ -231,7 +227,6 @@ export default function MainView() {
 
     if (w < 10 || h < 10) { setRegion(null); return; }
 
-    // displayed → native pixels
     const sx = natW / dispW;
     const sy = natH / dispH;
 
@@ -329,34 +324,36 @@ export default function MainView() {
     return (
       <div
         style={{ width: panelWidth }}
-        className={`flex flex-col shrink-0 overflow-hidden bg-neutral-900 ${
+        className={`flex flex-col shrink-0 overflow-hidden bg-background ${
           side === "left" ? "border-r" : "border-l"
-        } border-neutral-700`}
+        } border-border`}
       >
-        <div className="px-2 py-1 bg-neutral-800 border-b border-neutral-700 shrink-0">
-          <span className="text-[14px] text-neutral-500 font-medium">
+        <div className="px-2 py-1 bg-card border-b border-border shrink-0">
+          <span className="text-xs text-muted-foreground font-medium">
             OCR Results ({results.length})
           </span>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-visible">
           {results.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-neutral-600 text-[14px] p-2 text-center">
+            <div className="flex items-center justify-center h-full text-muted-foreground text-xs p-2 text-center">
               Select a region to extract text
             </div>
           ) : (
-            <div className="divide-y divide-neutral-800">
+            <div className="divide-y divide-border">
               {results.map((entry, i) => (
-                <div key={entry.timestamp} className="px-2 py-1.5 hover:bg-neutral-800/50">
+                <div key={entry.timestamp} className="px-2 py-1.5 hover:bg-accent/50">
                   <div className="flex items-center gap-1 mb-1">
-                    <span className="text-[10px] text-neutral-600">{entry.confidence.toFixed(0)}%</span>
-                    <button
+                    <span className="text-[10px] text-muted-foreground/60">{entry.confidence.toFixed(0)}%</span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-5 px-1.5 text-[10px] ml-auto"
                       onClick={() => copyText(entry.text, i)}
-                      className="px-1.5 text-[10px] bg-neutral-700 hover:bg-neutral-600 rounded transition-colors ml-auto"
                     >
                       {copied === i ? "Copied" : "Copy"}
-                    </button>
+                    </Button>
                   </div>
-                  <div className="text-xs">
+                  <div>
                     <TokenizedText text={entry.text} />
                   </div>
                 </div>
@@ -369,17 +366,17 @@ export default function MainView() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-900 text-neutral-100">
+    <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Top tab bar */}
-      <nav className="flex border-b border-neutral-700 bg-neutral-800 shrink-0">
+      <nav className="flex border-b border-border bg-card shrink-0">
         {(Object.keys(tabLabels) as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-2 text-xs font-medium transition-colors ${
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
               tab === t
-                ? "text-blue-400 border-b-2 border-blue-400"
-                : "text-neutral-400 hover:text-neutral-200"
+                ? "text-primary border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
             {tabLabels[t]}
@@ -391,32 +388,34 @@ export default function MainView() {
         {tab === "capture" && (
           <div className="flex flex-col h-full">
             {/* Toolbar */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 border-b border-neutral-700 shrink-0">
-              <button
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-card border-b border-border shrink-0">
+              <Button
+                size="sm"
                 onClick={handleCapture}
                 disabled={capturing}
-                className="px-3 py-1 text-xs bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded font-medium transition-colors"
               >
                 {capturing ? "Capturing..." : "Capture"}
-              </button>
-              <span className="text-[16px] text-neutral-500">{hotkeyLabel}</span>
+              </Button>
+              <span className="text-xs text-muted-foreground">{hotkeyLabel}</span>
 
               {screenshotUrl && (
                 <div className="flex items-center gap-1 ml-auto">
-                  {processing && <span className="text-xs text-blue-400 mr-2">Processing OCR...</span>}
-                  {error && <span className="text-xs text-red-400 mr-2 truncate max-w-[250px]" title={error}>{error}</span>}
-                  <button onClick={() => doZoom(zoom / 1.25)} className="px-1.5 py-0.5 text-xs bg-neutral-700 hover:bg-neutral-600 rounded" title="Zoom out">-</button>
-                  <button
+                  {processing && <span className="text-sm text-primary mr-2">Processing OCR...</span>}
+                  {error && <span className="text-sm text-destructive mr-2 truncate max-w-[250px]" title={error}>{error}</span>}
+                  <Button variant="secondary" size="sm" className="h-6 px-1.5" onClick={() => doZoom(zoom / 1.25)} title="Zoom out">-</Button>
+                  <Button
+                    variant={isFit ? "default" : "secondary"}
+                    size="sm"
+                    className="h-6 px-2 text-xs"
                     onClick={() => { setZoom(calcFit()); setIsFit(true); }}
-                    className={`px-2 py-0.5 text-[16px] rounded ${isFit ? "bg-blue-600 text-white" : "bg-neutral-700 hover:bg-neutral-600 text-neutral-300"}`}
                     title="Fit to screen"
                   >
                     {Math.round(zoom * 100)}%
-                  </button>
-                  <button onClick={() => doZoom(zoom * 1.25)} className="px-1.5 py-0.5 text-xs bg-neutral-700 hover:bg-neutral-600 rounded" title="Zoom in">+</button>
+                  </Button>
+                  <Button variant="secondary" size="sm" className="h-6 px-1.5" onClick={() => doZoom(zoom * 1.25)} title="Zoom in">+</Button>
                 </div>
               )}
-              {!screenshotUrl && error && <span className="text-xs text-red-400 ml-auto">{error}</span>}
+              {!screenshotUrl && error && <span className="text-sm text-destructive ml-auto">{error}</span>}
             </div>
 
             {/* Image + side panel */}
@@ -425,7 +424,7 @@ export default function MainView() {
                 <>
                   {renderResultsPanel("left")}
                   <div
-                    className="w-1 bg-neutral-700 hover:bg-blue-500 cursor-col-resize shrink-0 transition-colors"
+                    className="w-1 bg-border hover:bg-primary cursor-col-resize shrink-0 transition-colors"
                     onMouseDown={handleResizeStart}
                   />
                 </>
@@ -434,7 +433,7 @@ export default function MainView() {
               {/* Image area */}
               <div
                 ref={containerRef}
-                className="flex-1 min-w-0 overflow-auto bg-neutral-950 scrollbar-visible"
+                className="flex-1 min-w-0 overflow-auto bg-background scrollbar-visible"
                 style={{ cursor: isPanning ? "grabbing" : screenshotUrl ? "crosshair" : "default" }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
@@ -464,7 +463,7 @@ export default function MainView() {
                     />
                     {selRect && selRect.width > 0 && selRect.height > 0 && (
                       <div
-                        className="absolute border-2 border-blue-500 bg-blue-500/10 pointer-events-none"
+                        className="absolute border-2 border-primary bg-primary/10 pointer-events-none"
                         style={{ left: selRect.left, top: selRect.top, width: selRect.width, height: selRect.height }}
                       />
                     )}
@@ -475,7 +474,7 @@ export default function MainView() {
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-neutral-600 text-sm">
+                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
                     {capturing ? "Taking screenshot..." : `Press Capture or ${hotkeyLabel}`}
                   </div>
                 )}
@@ -484,7 +483,7 @@ export default function MainView() {
               {panelSide === "right" && (
                 <>
                   <div
-                    className="w-1 bg-neutral-700 hover:bg-blue-500 cursor-col-resize shrink-0 transition-colors"
+                    className="w-1 bg-border hover:bg-primary cursor-col-resize shrink-0 transition-colors"
                     onMouseDown={handleResizeStart}
                   />
                   {renderResultsPanel("right")}

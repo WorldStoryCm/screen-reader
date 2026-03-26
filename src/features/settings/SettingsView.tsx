@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
+import { Button } from "@/components/button";
+import { Label } from "@/components/label";
+import { Switch } from "@/components/switch";
+import { Separator } from "@/components/separator";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/select";
 
 interface Settings {
   hotkey: string;
@@ -60,35 +67,29 @@ export default function SettingsView() {
 
   return (
     <div className="p-6 max-w-md mx-auto">
-      <h2 className="text-lg font-semibold mb-6">Settings</h2>
+      <h2 className="text-lg font-semibold text-foreground mb-6">Settings</h2>
 
-      <div className="space-y-5">
+      <div className="space-y-6">
         {/* Theme */}
         <div className="flex items-center justify-between">
-          <div>
-            <label className="text-xs text-neutral-400">Theme</label>
-            <p className="text-[16px] text-neutral-600">
+          <div className="space-y-0.5">
+            <Label>Theme</Label>
+            <p className="text-xs text-muted-foreground">
               Switch between dark and light appearance
             </p>
           </div>
-          <button
-            onClick={() => {
-              const newTheme = settings.theme === "dark" ? "light" : "dark";
+          <Switch
+            checked={settings.theme === "light"}
+            onCheckedChange={(checked) => {
+              const newTheme = checked ? "light" : "dark";
               setSettings((s) => ({ ...s, theme: newTheme }));
               saveSetting("theme", newTheme);
               emit("theme-changed", newTheme);
             }}
-            className={`w-10 h-5 rounded-full transition-colors relative ${
-              settings.theme === "light" ? "bg-blue-600" : "bg-neutral-700"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                settings.theme === "light" ? "left-5" : "left-0.5"
-              }`}
-            />
-          </button>
+          />
         </div>
+
+        <Separator />
 
         {/* Hotkey */}
         <HotkeyRecorder
@@ -98,79 +99,80 @@ export default function SettingsView() {
           }}
         />
 
+        <Separator />
+
         {/* Default preset */}
-        <div>
-          <label className="block text-xs text-neutral-400 mb-1">
-            Default OCR Preset
-          </label>
-          <select
+        <div className="space-y-1.5">
+          <Label>Default OCR Preset</Label>
+          <Select
             value={settings.default_preset}
-            onChange={(e) => {
-              setSettings((s) => ({ ...s, default_preset: e.target.value }));
-              saveSetting("default_preset", e.target.value);
+            onValueChange={(val) => {
+              setSettings((s) => ({ ...s, default_preset: val }));
+              saveSetting("default_preset", val);
             }}
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-300"
           >
-            {PRESETS.map((p) => (
-              <option key={p} value={p}>
-                {p.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PRESETS.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {p.replace(/_/g, " ")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
+        <Separator />
 
         {/* Auto copy */}
         <div className="flex items-center justify-between">
-          <div>
-            <label className="text-xs text-neutral-400">Auto-copy after OCR</label>
-            <p className="text-[16px] text-neutral-600">
+          <div className="space-y-0.5">
+            <Label>Auto-copy after OCR</Label>
+            <p className="text-xs text-muted-foreground">
               Automatically copy text to clipboard after capture
             </p>
           </div>
-          <button
-            onClick={() => {
-              const newVal = !settings.auto_copy;
-              setSettings((s) => ({ ...s, auto_copy: newVal }));
-              saveSetting("auto_copy", String(newVal));
+          <Switch
+            checked={settings.auto_copy}
+            onCheckedChange={(checked) => {
+              setSettings((s) => ({ ...s, auto_copy: checked }));
+              saveSetting("auto_copy", String(checked));
             }}
-            className={`w-10 h-5 rounded-full transition-colors relative ${
-              settings.auto_copy ? "bg-blue-600" : "bg-neutral-700"
-            }`}
-          >
-            <span
-              className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                settings.auto_copy ? "left-5" : "left-0.5"
-              }`}
-            />
-          </button>
+          />
         </div>
 
+        <Separator />
+
         {/* OCR Panel Position */}
-        <div>
-          <label className="block text-xs text-neutral-400 mb-1">
-            OCR Panel Position
-          </label>
-          <select
+        <div className="space-y-1.5">
+          <Label>OCR Panel Position</Label>
+          <Select
             value={settings.ocr_panel_side}
-            onChange={(e) => {
-              const side = e.target.value as "left" | "right";
+            onValueChange={(val) => {
+              const side = val as "left" | "right";
               setSettings((s) => ({ ...s, ocr_panel_side: side }));
               saveSetting("ocr_panel_side", side);
               emit("panel-side-changed", side);
             }}
-            className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded text-sm text-neutral-300"
           >
-            <option value="left">Left</option>
-            <option value="right">Right</option>
-          </select>
-          <p className="text-[16px] text-neutral-600 mt-1">
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="left">Left</SelectItem>
+              <SelectItem value="right">Right</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
             Side panel for OCR results on the capture screen
           </p>
         </div>
       </div>
 
       {saved && (
-        <p className="mt-4 text-green-400 text-xs">Settings saved</p>
+        <p className="mt-4 text-sm text-emerald-400">Settings saved</p>
       )}
     </div>
   );
@@ -215,7 +217,7 @@ function HotkeyRecorder({ value, onChange }: { value: string; onChange: (hotkey:
       }
 
       const key = keyToLabel(e);
-      if (!key) return; // modifier-only press, keep waiting
+      if (!key) return;
 
       const parts: string[] = [];
       if (e.ctrlKey) parts.push("Ctrl");
@@ -243,31 +245,28 @@ function HotkeyRecorder({ value, onChange }: { value: string; onChange: (hotkey:
   }, [recording, onChange]);
 
   return (
-    <div>
-      <label className="block text-xs text-neutral-400 mb-1">Global Hotkey</label>
+    <div className="space-y-1.5">
+      <Label>Global Hotkey</Label>
       <div className="flex gap-2 items-center">
         <button
           ref={inputRef}
           onClick={() => { setRecording(true); setError(null); }}
-          className={`flex-1 px-3 py-2 text-left rounded text-sm transition-colors ${
+          className={`flex-1 px-3 py-2 text-left rounded-md text-sm transition-colors ${
             recording
-              ? "bg-blue-900/50 border-2 border-blue-500 text-blue-300 animate-pulse"
-              : "bg-neutral-800 border border-neutral-700 text-neutral-300"
+              ? "bg-primary/20 border-2 border-primary text-primary animate-pulse"
+              : "bg-background border border-input text-foreground"
           }`}
         >
           {recording ? "Press keys..." : value}
         </button>
         {recording && (
-          <button
-            onClick={() => setRecording(false)}
-            className="px-2 py-1 text-xs bg-neutral-700 hover:bg-neutral-600 rounded transition-colors"
-          >
+          <Button variant="secondary" size="sm" onClick={() => setRecording(false)}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
-      <p className="text-[16px] text-neutral-600 mt-1">
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <p className="text-xs text-muted-foreground">
         Click to record a new shortcut (Esc to cancel)
       </p>
     </div>
