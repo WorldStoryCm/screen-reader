@@ -1,9 +1,8 @@
 "use client";
 
-import { Typography } from "@/components/Typography";
-import { cn } from "@/components/component.utils";
+import {cn} from "@/components/component.utils";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import { Loader2 } from "lucide-react";
+import {Loader2} from "lucide-react";
 import * as React from "react";
 
 const Tabs = TabsPrimitive.Root;

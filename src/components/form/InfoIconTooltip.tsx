@@ -14,7 +14,6 @@ export function InfoIconTooltip({
   tooltip,
   tooltipTitle,
   tooltipDescription,
-  iconClassName,
 }: InfoTooltipProps) {
   if (tooltip) {
     return <>{tooltip}</>;
