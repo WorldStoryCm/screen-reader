@@ -84,12 +84,12 @@ export default function TokenizedText({ text, captureId, onTokenSelect }: Props)
             onMouseLeave={() => setHovered(null)}
             className={`px-0.5 rounded cursor-pointer transition-colors text-sm border-b ${
               popover?.index === i
-                ? "bg-amber-600/40 text-amber-200 border-amber-400"
+                ? "bg-[var(--color-token-active-bg)] text-[var(--color-token-hover-text)] border-[var(--color-token-hover-border)]"
                 : hovered === i
-                  ? "bg-amber-600/30 text-amber-200 border-amber-400"
+                  ? "bg-[var(--color-token-hover-bg)] text-[var(--color-token-hover-text)] border-[var(--color-token-hover-border)]"
                   : level
                     ? `${levelColor} border-current`
-                    : "hover:bg-neutral-700 text-neutral-200 border-transparent"
+                    : "hover:bg-[var(--color-token-default-hover-bg)] text-[var(--color-token-default-text)] border-transparent"
             }`}
             title={card ? `${LEVEL_ROMAN[level!]} — ${card.reading || card.meaning || card.jp_text}` : "Click for options"}
           >

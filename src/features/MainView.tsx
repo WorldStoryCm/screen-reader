@@ -29,52 +29,41 @@ type Tab = "capture" | "history" | "cards" | "tags" | "settings";
 export default function MainView() {
   const [tab, setTab] = useState<Tab>("capture");
 
-  // Screenshot
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Image natural dimensions (set on load)
   const [natW, setNatW] = useState(0);
   const [natH, setNatH] = useState(0);
 
-  // Zoom
   const [zoom, setZoom] = useState(1);
   const [isFit, setIsFit] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Selection
   const [isDragging, setIsDragging] = useState(false);
   const [region, setRegion] = useState<Region | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
-  // Right-click pan
   const [isPanning, setIsPanning] = useState(false);
   const panStart = useRef({ x: 0, y: 0, scrollX: 0, scrollY: 0 });
 
-  // Results
   const [results, setResults] = useState<CaptureEntry[]>([]);
   const [copied, setCopied] = useState<number | null>(null);
 
-  // Side panel
-  const [panelWidth, setPanelWidth] = useState(200);
+  const [panelWidth, setPanelWidth] = useState(220);
   const [panelSide, setPanelSide] = useState<"left" | "right">("right");
 
-  // Hotkey display
   const [hotkeyLabel, setHotkeyLabel] = useState("Ctrl+Shift+X");
 
-  // Refs for non-passive wheel listener
   const hasScreenshot = useRef(false);
   hasScreenshot.current = !!screenshotUrl;
 
-  // Hotkey listener
   useEffect(() => {
     const unlisten = listen("trigger-capture", () => handleCapture());
     return () => { unlisten.then(fn => fn()); };
   }, []);
 
-  // Recalc fit zoom on container resize
   useEffect(() => {
     const c = containerRef.current;
     if (!c || !natW) return;
@@ -83,7 +72,6 @@ export default function MainView() {
     return () => ro.disconnect();
   }, [natW, natH, isFit]);
 
-  // Load hotkey label
   useEffect(() => {
     invoke<string | null>("get_setting", { key: "hotkey" })
       .then(v => { if (v) setHotkeyLabel(v); })
@@ -94,7 +82,6 @@ export default function MainView() {
     return () => { unlisten.then(fn => fn()); };
   }, []);
 
-  // Load panel side preference
   useEffect(() => {
     invoke<string | null>("get_setting", { key: "ocr_panel_side" })
       .then(v => { if (v === "left" || v === "right") setPanelSide(v); })
@@ -105,7 +92,6 @@ export default function MainView() {
     return () => { unlisten.then(fn => fn()); };
   }, []);
 
-  // Native wheel listener (non-passive to allow preventDefault)
   useEffect(() => {
     if (tab !== "capture") return;
     const el = containerRef.current;
@@ -271,7 +257,7 @@ export default function MainView() {
             timestamp: Date.now(),
           }, ...prev]);
         } else {
-          setError("OCR returned no text for this region");
+          setError("No text found — try selecting a larger region");
         }
       }
       setRegion(null);
@@ -312,48 +298,51 @@ export default function MainView() {
     height: Math.abs(region.endY - region.startY),
   } : null;
 
-  const tabLabels: Record<Tab, string> = {
-    capture: "Screen Reader",
-    cards: "Cards",
-    tags: "Tags",
-    history: "History",
-    settings: "Settings",
-  };
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "capture", label: "Reader" },
+    { key: "cards", label: "Cards" },
+    { key: "history", label: "History" },
+    { key: "tags", label: "Tags" },
+    { key: "settings", label: "Settings" },
+  ];
 
   function renderResultsPanel(side: "left" | "right") {
     return (
       <div
         style={{ width: panelWidth }}
-        className={`flex flex-col shrink-0 overflow-hidden bg-background ${
+        className={`flex flex-col shrink-0 overflow-hidden bg-card ${
           side === "left" ? "border-r" : "border-l"
         } border-border`}
       >
-        <div className="px-2 py-1 bg-card border-b border-border shrink-0">
-          <span className="text-xs text-muted-foreground font-medium">
-            OCR Results ({results.length})
+        <div className="px-3 py-2 border-b border-border shrink-0">
+          <span className="text-sm font-medium text-muted-foreground tracking-wide uppercase">
+            Results · {results.length}
           </span>
         </div>
         <div className="flex-1 overflow-y-auto scrollbar-visible">
           {results.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-xs p-2 text-center">
-              Select a region to extract text
+            <div className="flex flex-col items-center justify-center h-full text-center px-4 py-8 gap-2">
+              <span className="text-muted-foreground/40 text-2xl">&#x2725;</span>
+              <p className="text-sm text-muted-foreground">
+                Draw a selection on the screenshot to extract text
+              </p>
             </div>
           ) : (
             <div className="divide-y divide-border">
               {results.map((entry, i) => (
-                <div key={entry.timestamp} className="px-2 py-1.5 hover:bg-accent/50">
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="text-[10px] text-muted-foreground/60">{entry.confidence.toFixed(0)}%</span>
+                <div key={entry.timestamp} className="px-3 py-2 hover:bg-accent/40 group">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-xs text-muted-foreground/50 font-medium">{entry.confidence.toFixed(0)}%</span>
                     <Button
-                      variant="secondary"
+                      variant="ghost"
                       size="sm"
-                      className="h-5 px-1.5 text-[10px] ml-auto"
+                      className="h-6 px-2 text-xs ml-auto opacity-0 group-hover:opacity-100"
                       onClick={() => copyText(entry.text, i)}
                     >
                       {copied === i ? "Copied" : "Copy"}
                     </Button>
                   </div>
-                  <div>
+                  <div className="text-base leading-relaxed">
                     <TokenizedText text={entry.text} />
                   </div>
                 </div>
@@ -367,19 +356,22 @@ export default function MainView() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      {/* Top tab bar */}
-      <nav className="flex border-b border-border bg-card shrink-0">
-        {(Object.keys(tabLabels) as Tab[]).map((t) => (
+      {/* Tab bar */}
+      <nav className="flex items-center gap-1 px-2 border-b border-border bg-card shrink-0">
+        {tabs.map((t) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium transition-colors ${
-              tab === t
-                ? "text-primary border-b-2 border-primary"
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`relative px-3 py-2.5 text-sm font-medium transition-colors ${
+              tab === t.key
+                ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {tabLabels[t]}
+            {t.label}
+            {tab === t.key && (
+              <span className="absolute bottom-0 left-1 right-1 h-0.5 bg-primary rounded-full" />
+            )}
           </button>
         ))}
       </nav>
@@ -388,7 +380,7 @@ export default function MainView() {
         {tab === "capture" && (
           <div className="flex flex-col h-full">
             {/* Toolbar */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-card border-b border-border shrink-0">
+            <div className="flex items-center gap-3 px-3 py-2 bg-card/60 border-b border-border shrink-0">
               <Button
                 size="sm"
                 onClick={handleCapture}
@@ -396,23 +388,25 @@ export default function MainView() {
               >
                 {capturing ? "Capturing..." : "Capture"}
               </Button>
-              <span className="text-xs text-muted-foreground">{hotkeyLabel}</span>
+              <kbd className="text-xs text-muted-foreground/60 font-mono bg-muted px-1.5 py-0.5 rounded">
+                {hotkeyLabel}
+              </kbd>
 
               {screenshotUrl && (
-                <div className="flex items-center gap-1 ml-auto">
-                  {processing && <span className="text-sm text-primary mr-2">Processing OCR...</span>}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {processing && <span className="text-sm text-primary animate-pulse mr-2">Reading text...</span>}
                   {error && <span className="text-sm text-destructive mr-2 truncate max-w-[250px]" title={error}>{error}</span>}
-                  <Button variant="secondary" size="sm" className="h-6 px-1.5" onClick={() => doZoom(zoom / 1.25)} title="Zoom out">-</Button>
-                  <Button
-                    variant={isFit ? "default" : "secondary"}
-                    size="sm"
-                    className="h-6 px-2 text-xs"
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-xs" onClick={() => doZoom(zoom / 1.25)} title="Zoom out">−</Button>
+                  <button
                     onClick={() => { setZoom(calcFit()); setIsFit(true); }}
+                    className={`px-2 py-0.5 text-xs font-mono rounded-md transition-colors ${
+                      isFit ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+                    }`}
                     title="Fit to screen"
                   >
                     {Math.round(zoom * 100)}%
-                  </Button>
-                  <Button variant="secondary" size="sm" className="h-6 px-1.5" onClick={() => doZoom(zoom * 1.25)} title="Zoom in">+</Button>
+                  </button>
+                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-xs" onClick={() => doZoom(zoom * 1.25)} title="Zoom in">+</Button>
                 </div>
               )}
               {!screenshotUrl && error && <span className="text-sm text-destructive ml-auto">{error}</span>}
@@ -424,17 +418,19 @@ export default function MainView() {
                 <>
                   {renderResultsPanel("left")}
                   <div
-                    className="w-1 bg-border hover:bg-primary cursor-col-resize shrink-0 transition-colors"
+                    className="w-px bg-border hover:bg-primary hover:w-0.5 cursor-col-resize shrink-0 transition-all"
                     onMouseDown={handleResizeStart}
                   />
                 </>
               )}
 
-              {/* Image area */}
               <div
                 ref={containerRef}
-                className="flex-1 min-w-0 overflow-auto bg-background scrollbar-visible"
-                style={{ cursor: isPanning ? "grabbing" : screenshotUrl ? "crosshair" : "default" }}
+                className="flex-1 min-w-0 overflow-auto scrollbar-visible"
+                style={{
+                  cursor: isPanning ? "grabbing" : screenshotUrl ? "crosshair" : "default",
+                  backgroundColor: "var(--color-canvas)",
+                }}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -468,14 +464,20 @@ export default function MainView() {
                       />
                     )}
                     {!region && !processing && (
-                      <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/60 text-white/70 text-xs px-3 py-1 rounded pointer-events-none z-10">
-                        Drag to select · Scroll to zoom · Right-drag to pan · Middle-click 100%
+                      <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-sm text-muted-foreground text-xs px-3 py-1.5 rounded-full pointer-events-none z-10 shadow-sm border border-border/50">
+                        Drag to select · Scroll to zoom · Right-drag to pan
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-                    {capturing ? "Taking screenshot..." : `Press Capture or ${hotkeyLabel}`}
+                  <div className="flex flex-col items-center justify-center h-full gap-3">
+                    <span className="text-muted-foreground/20 text-4xl">&#x2318;</span>
+                    <p className="text-sm text-muted-foreground">
+                      {capturing ? "Taking screenshot..." : "Press Capture to start reading"}
+                    </p>
+                    <kbd className="text-xs text-muted-foreground/50 font-mono bg-muted px-2 py-1 rounded">
+                      {hotkeyLabel}
+                    </kbd>
                   </div>
                 )}
               </div>
@@ -483,7 +485,7 @@ export default function MainView() {
               {panelSide === "right" && (
                 <>
                   <div
-                    className="w-1 bg-border hover:bg-primary cursor-col-resize shrink-0 transition-colors"
+                    className="w-px bg-border hover:bg-primary hover:w-0.5 cursor-col-resize shrink-0 transition-all"
                     onMouseDown={handleResizeStart}
                   />
                   {renderResultsPanel("right")}

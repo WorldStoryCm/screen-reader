@@ -54,20 +54,20 @@ export const LEVEL_LABELS: Record<CardLevel, string> = {
 };
 
 export const LEVEL_COLORS: Record<CardLevel, string> = {
-  1: "bg-neutral-700 text-neutral-300",
-  2: "bg-amber-900/50 text-amber-300",
-  3: "bg-yellow-900/50 text-yellow-300",
-  4: "bg-emerald-900/50 text-emerald-300",
-  5: "bg-green-800/50 text-green-300",
+  1: "bg-[var(--color-level1-bg)] text-[var(--color-level1-text)]",
+  2: "bg-[var(--color-level2-bg)] text-[var(--color-level2-text)]",
+  3: "bg-[var(--color-level3-bg)] text-[var(--color-level3-text)]",
+  4: "bg-[var(--color-level4-bg)] text-[var(--color-level4-text)]",
+  5: "bg-[var(--color-level5-bg)] text-[var(--color-level5-text)]",
 };
 
 /** Color for token highlight in text based on card level */
 export const LEVEL_TOKEN_COLORS: Record<CardLevel, string> = {
-  1: "bg-neutral-700/40 text-neutral-300",
-  2: "bg-amber-900/30 text-amber-200",
-  3: "bg-yellow-900/30 text-yellow-200",
-  4: "bg-emerald-900/30 text-emerald-200",
-  5: "bg-green-900/30 text-green-200",
+  1: "bg-[var(--color-level1-bg)] text-[var(--color-level1-text)]",
+  2: "bg-[var(--color-level2-bg)] text-[var(--color-level2-text)]",
+  3: "bg-[var(--color-level3-bg)] text-[var(--color-level3-text)]",
+  4: "bg-[var(--color-level4-bg)] text-[var(--color-level4-text)]",
+  5: "bg-[var(--color-level5-bg)] text-[var(--color-level5-text)]",
 };
 
 export const LEVEL_ROMAN: Record<CardLevel, string> = {

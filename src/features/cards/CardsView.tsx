@@ -8,7 +8,6 @@ import { Button } from "@/components/button";
 import { Input } from "@/components/input";
 import { Label } from "@/components/label";
 import { Textarea } from "@/components/textarea";
-import { Badge } from "@/components/badge";
 import { ScrollArea } from "@/components/scroll-area";
 import { Separator } from "@/components/separator";
 import {
@@ -84,7 +83,7 @@ export default function CardsView() {
       });
       if (!filePath) return;
       const count = await invoke<number>("export_cards_csv", { path: filePath });
-      alert(`Exported ${count} cards (TSV)`);
+      alert(`Exported ${count} cards`);
     } catch (err) {
       console.error("Export failed:", err);
     }
@@ -98,7 +97,7 @@ export default function CardsView() {
       });
       if (!filePath) return;
       const count = await invoke<number>("export_cards_json", { path: filePath });
-      alert(`Exported ${count} cards (JSON)`);
+      alert(`Exported ${count} cards`);
     } catch (err) {
       console.error("Export failed:", err);
     }
@@ -165,8 +164,8 @@ export default function CardsView() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        Loading...
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        Loading cards...
       </div>
     );
   }
@@ -181,7 +180,7 @@ export default function CardsView() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search cards..."
+              placeholder="Search..."
               className="flex-1"
             />
             <DropdownMenu>
@@ -189,8 +188,8 @@ export default function CardsView() {
                 <Button variant="secondary" size="sm">Export</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExportJson}>JSON</DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportTsv}>TSV</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportJson}>Export JSON</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportTsv}>Export TSV</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <DropdownMenu>
@@ -207,9 +206,8 @@ export default function CardsView() {
           </div>
           <div className="flex gap-1 items-center">
             <Button
-              variant={!filterLevel && !filterTag ? "default" : "secondary"}
+              variant={!filterLevel && !filterTag ? "default" : "ghost"}
               size="sm"
-              className="h-7 px-2 text-xs"
               onClick={() => { setFilterLevel(null); setFilterTag(null); }}
             >
               All
@@ -217,9 +215,9 @@ export default function CardsView() {
             {LEVELS.map((lv) => (
               <Button
                 key={lv}
-                variant="secondary"
+                variant="ghost"
                 size="sm"
-                className={`h-7 px-2 text-xs ${filterLevel === String(lv) ? LEVEL_COLORS[lv] : ""}`}
+                className={filterLevel === String(lv) ? LEVEL_COLORS[lv] : ""}
                 onClick={() => { setFilterLevel(String(lv)); setFilterTag(null); }}
               >
                 {LEVEL_ROMAN[lv]}
@@ -233,7 +231,7 @@ export default function CardsView() {
                   else { setFilterTag(val); setFilterLevel(null); }
                 }}
               >
-                <SelectTrigger className={`h-7 w-auto min-w-[70px] text-xs ${filterTag ? "border-primary text-primary" : ""}`}>
+                <SelectTrigger className={`w-auto min-w-[80px] ${filterTag ? "border-primary text-primary" : ""}`}>
                   <SelectValue placeholder="Tag..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -250,7 +248,11 @@ export default function CardsView() {
         {/* Card list */}
         <ScrollArea className="flex-1">
           {cards.length === 0 ? (
-            <div className="p-4 text-muted-foreground text-sm text-center">No cards yet</div>
+            <div className="flex flex-col items-center justify-center py-16 px-4 gap-3">
+              <p className="text-muted-foreground text-center">
+                No cards yet. Create your first vocabulary card to start learning.
+              </p>
+            </div>
           ) : (
             cards.map((card) => {
               const level = getCardLevel(card.status);
@@ -258,39 +260,35 @@ export default function CardsView() {
                 <div
                   key={card.id}
                   onClick={() => setSelected(card)}
-                  className={`p-3 border-b border-border cursor-pointer transition-colors ${
-                    selected?.id === card.id ? "bg-accent" : "hover:bg-accent/50"
+                  className={`px-3 py-3 border-b border-border cursor-pointer transition-colors ${
+                    selected?.id === card.id ? "bg-accent" : "hover:bg-accent/40"
                   }`}
                 >
-                  <div className="flex justify-between items-start">
-                    <span className="text-sm font-medium text-foreground">{card.jp_text}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${LEVEL_COLORS[level]}`}>
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-xl font-medium text-foreground leading-tight">{card.jp_text}</span>
+                    <span className={`text-sm px-2 py-0.5 rounded-md font-medium shrink-0 ${LEVEL_COLORS[level]}`}>
                       {LEVEL_ROMAN[level]}
                     </span>
                   </div>
                   {card.reading && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{card.reading}</p>
+                    <p className="text-sm text-muted-foreground mt-1">{card.reading}</p>
                   )}
                   {card.translation && (
-                    <p className="text-sm text-secondary-foreground mt-0.5">{card.translation}</p>
+                    <p className="text-base text-foreground mt-0.5">{card.translation}</p>
                   )}
                   {card.meaning && (
-                    <p className="text-xs text-muted-foreground mt-0.5">{card.meaning}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{card.meaning}</p>
                   )}
-                  {(card.category || card.tags.length > 0) && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
+                  {(card.category || card.tags.length > 0 || card.sources.length > 0) && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
                       {card.category && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-purple-900/40 text-purple-300 rounded-full">{card.category}</span>
+                        <span className="text-sm px-2 py-0.5 bg-[var(--color-category-bg)] text-[var(--color-category)] rounded-full">{card.category}</span>
                       )}
                       {card.tags.map((t) => (
-                        <span key={t} className="text-[10px] px-1.5 py-0.5 bg-primary/20 text-primary rounded-full">{t}</span>
+                        <span key={t} className="text-sm px-2 py-0.5 bg-primary/15 text-primary rounded-full">{t}</span>
                       ))}
-                    </div>
-                  )}
-                  {card.sources.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
                       {card.sources.map((s) => (
-                        <span key={s.source_id} className="text-[10px] px-1.5 py-0.5 bg-emerald-900/40 text-emerald-300 rounded-full">{s.source_name}</span>
+                        <span key={s.source_id} className="text-sm px-2 py-0.5 bg-[var(--color-source-bg)] text-[var(--color-source)] rounded-full">{s.source_name}</span>
                       ))}
                     </div>
                   )}
@@ -321,8 +319,8 @@ export default function CardsView() {
             onSourceRemove={(id) => handleSourceRemove(selected, id)}
           />
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Select a card or create a new one
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <p className="text-muted-foreground">Select a card to view details</p>
           </div>
         )}
       </div>
@@ -366,14 +364,14 @@ function TagChipsInput({
 
   return (
     <div className="relative">
-      <div className="flex flex-wrap gap-1 p-1.5 bg-background border border-input rounded-md min-h-[36px] items-center focus-within:ring-1 focus-within:ring-ring">
+      <div className="flex flex-wrap gap-1.5 p-2 bg-background border border-input rounded-md min-h-[40px] items-center focus-within:ring-1 focus-within:ring-ring transition-shadow">
         {selected.map((tag) => (
-          <Badge key={tag} className="bg-primary text-primary-foreground text-xs px-2 py-0.5 rounded-full ring-0">
+          <span key={tag} className="flex items-center gap-1 bg-primary/15 text-primary text-sm px-2.5 py-0.5 rounded-full">
             {tag}
-            <button type="button" onClick={() => remove(tag)} className="ml-1 hover:text-destructive text-[10px] leading-none">
+            <button type="button" onClick={() => remove(tag)} className="ml-0.5 opacity-60 hover:opacity-100 leading-none">
               &times;
             </button>
-          </Badge>
+          </span>
         ))}
         <input
           ref={inputRef}
@@ -383,18 +381,18 @@ function TagChipsInput({
           onBlur={() => setTimeout(() => setOpen(false), 150)}
           onKeyDown={handleKeyDown}
           placeholder={selected.length === 0 ? "Add tags..." : ""}
-          className="flex-1 min-w-[60px] bg-transparent text-sm text-foreground outline-none px-1 py-0.5 placeholder:text-muted-foreground"
+          className="flex-1 min-w-[60px] bg-transparent text-base text-foreground outline-none px-1 py-0.5 placeholder:text-muted-foreground"
         />
       </div>
       {open && suggestions.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-[120px] overflow-y-auto">
+        <div className="absolute z-20 mt-1 w-full bg-popover border border-border rounded-md shadow-lg max-h-[150px] overflow-y-auto">
           {suggestions.map((tag) => (
             <button
               key={tag.id}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => add(tag.name)}
-              className="w-full px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent text-left transition-colors"
+              className="w-full px-3 py-2 text-base text-popover-foreground hover:bg-accent text-left transition-colors"
             >
               {tag.name}
             </button>
@@ -428,27 +426,27 @@ function CardForm({
   const [tags, setTags] = useState<string[]>([]);
 
   return (
-    <div className="p-4 space-y-4">
-      <h3 className="text-sm font-semibold text-foreground">New Card</h3>
+    <div className="p-5 space-y-4">
+      <h3 className="text-lg font-semibold text-foreground">New Card</h3>
       <Separator />
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Japanese</Label>
-        <Input value={jpText} onChange={(e) => setJpText(e.target.value)} />
+        <Label className="text-sm text-muted-foreground">Japanese</Label>
+        <Input value={jpText} onChange={(e) => setJpText(e.target.value)} className="text-xl" autoFocus />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Reading</Label>
-        <Input value={reading} onChange={(e) => setReading(e.target.value)} />
+        <Label className="text-sm text-muted-foreground">Reading</Label>
+        <Input value={reading} onChange={(e) => setReading(e.target.value)} placeholder="hiragana / katakana" />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Translation</Label>
-        <Input value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder="Direct translation" />
+        <Label className="text-sm text-muted-foreground">Translation</Label>
+        <Input value={translation} onChange={(e) => setTranslation(e.target.value)} placeholder="Short translation" />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Meaning</Label>
-        <Input value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder="Definition / explanation" />
+        <Label className="text-sm text-muted-foreground">Meaning</Label>
+        <Input value={meaning} onChange={(e) => setMeaning(e.target.value)} placeholder="Longer explanation" />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Category</Label>
+        <Label className="text-sm text-muted-foreground">Category</Label>
         <Select value={category} onValueChange={setCategory}>
           <SelectTrigger>
             <SelectValue placeholder="None" />
@@ -460,11 +458,11 @@ function CardForm({
         </Select>
       </div>
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Note</Label>
-        <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="resize-none" />
+        <Label className="text-sm text-muted-foreground">Note</Label>
+        <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} className="resize-none" placeholder="Context, example sentence..." />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Tags</Label>
+        <Label className="text-sm text-muted-foreground">Tags</Label>
         <TagChipsInput selected={tags} allTags={allTags} onChange={setTags} />
       </div>
       <Separator />
@@ -480,9 +478,9 @@ function CardForm({
           })}
           disabled={!jpText.trim()}
         >
-          Save
+          Create card
         </Button>
-        <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button variant="ghost" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
   );
@@ -511,10 +509,12 @@ function CardDetail({
   const level = getCardLevel(card.status);
 
   return (
-    <div className="p-4 space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-foreground">{card.jp_text}</h3>
-        <Button variant="destructive" size="sm" onClick={onDelete}>Delete</Button>
+    <div className="p-5 space-y-5">
+      <div className="flex justify-between items-start">
+        <h3 className="text-2xl font-semibold text-foreground leading-tight">{card.jp_text}</h3>
+        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive shrink-0" onClick={onDelete}>
+          Delete
+        </Button>
       </div>
 
       <Separator />
@@ -525,30 +525,36 @@ function CardDetail({
       <EditableField label="Note" value={card.note || ""} onSave={(v) => onSave("note", v)} multiline />
 
       {/* Category */}
+      {/*<div className="space-y-1.5">*/}
+      {/*  <Label className="text-sm text-muted-foreground">Category</Label>*/}
+      {/*  <Select*/}
+      {/*    value={card.category || "__none__"}*/}
+      {/*    onValueChange={(val) => onSave("category", val === "__none__" ? "" : val)}*/}
+      {/*  >*/}
+      {/*    <SelectTrigger>*/}
+      {/*      <SelectValue placeholder="None" />*/}
+      {/*    </SelectTrigger>*/}
+      {/*    <SelectContent>*/}
+      {/*      <SelectItem value="__none__">None</SelectItem>*/}
+      {/*      {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}*/}
+      {/*    </SelectContent>*/}
+      {/*  </Select>*/}
+      {/*</div>*/}
+
+      {/* Tags */}
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Category</Label>
-        <Select
-          value={card.category || "__none__"}
-          onValueChange={(val) => onSave("category", val === "__none__" ? "" : val)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="None" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none__">None</SelectItem>
-            {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        <Label className="text-sm text-muted-foreground">Tags</Label>
+        <TagChipsInput selected={card.tags} allTags={allTags} onChange={onTagsChange} />
       </div>
 
       {/* Level */}
-      <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Level</Label>
+      <div className="space-y-2">
+        <Label className="text-sm text-muted-foreground">Level</Label>
         <div className="flex gap-1">
           {LEVELS.map((lv) => (
             <Button
               key={lv}
-              variant="secondary"
+              variant="ghost"
               size="sm"
               className={`flex-1 ${level === lv ? LEVEL_COLORS[lv] : "text-muted-foreground"}`}
               onClick={() => onLevelChange(lv)}
@@ -558,14 +564,10 @@ function CardDetail({
             </Button>
           ))}
         </div>
-        <p className="text-xs text-muted-foreground">{LEVEL_LABELS[level]}</p>
+        <p className="text-sm text-muted-foreground">{LEVEL_LABELS[level]}</p>
       </div>
 
-      {/* Tags */}
-      <div className="space-y-1.5">
-        <Label className="text-muted-foreground">Tags</Label>
-        <TagChipsInput selected={card.tags} allTags={allTags} onChange={onTagsChange} />
-      </div>
+
 
       {/* Sources */}
       <SourcesSection sources={card.sources} onAdd={onSourceAdd} onRemove={onSourceRemove} />
@@ -588,15 +590,15 @@ function SourcesSection({
   const [newName, setNewName] = useState("");
 
   return (
-    <div className="space-y-1.5">
-      <Label className="text-muted-foreground">Sources</Label>
+    <div className="space-y-2">
+      <Label className="text-sm text-muted-foreground">Sources</Label>
       {sources.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
+        <div className="flex flex-wrap gap-1.5">
           {sources.map((s) => (
-            <span key={s.source_id} className="flex items-center gap-1 px-2 py-0.5 text-xs bg-emerald-900/40 text-emerald-300 rounded-full">
-              <span className="text-[10px] text-emerald-500">{s.source_type}</span>
+            <span key={s.source_id} className="flex items-center gap-1 px-2.5 py-0.5 text-sm bg-[var(--color-source-bg)] text-[var(--color-source)] rounded-full group/src">
+              <span className="text-xs text-[var(--color-source-type)]">{s.source_type}</span>
               {s.source_name}
-              <button onClick={() => onRemove(s.source_id)} className="hover:text-destructive text-[10px] leading-none">&times;</button>
+              <button onClick={() => onRemove(s.source_id)} className="opacity-0 group-hover/src:opacity-100 hover:text-destructive leading-none ml-0.5">&times;</button>
             </span>
           ))}
         </div>
@@ -604,7 +606,7 @@ function SourcesSection({
       {adding ? (
         <div className="flex gap-1.5 items-center">
           <Select value={newType} onValueChange={setNewType}>
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-[110px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -633,7 +635,7 @@ function SourcesSection({
           >
             Add
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
+          <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
         </div>
       ) : (
         <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setAdding(true)}>
@@ -666,14 +668,14 @@ function EditableField({
   if (editing) {
     return (
       <div className="space-y-1.5">
-        <Label className="text-muted-foreground">{label}</Label>
+        <Label className="text-sm text-muted-foreground">{label}</Label>
         {multiline ? (
           <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave} rows={2}
-            className="resize-none" autoFocus />
+            className="resize-none text-base" autoFocus />
         ) : (
           <Input value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={handleSave}
             onKeyDown={(e) => e.key === "Enter" && handleSave()}
-            autoFocus />
+            className="text-base" autoFocus />
         )}
       </div>
     );
@@ -681,8 +683,8 @@ function EditableField({
 
   return (
     <div onClick={() => { setDraft(value); setEditing(true); }} className="cursor-pointer group space-y-1">
-      <Label className="text-muted-foreground">{label}</Label>
-      <p className="text-sm text-secondary-foreground group-hover:text-primary transition-colors">
+      <Label className="text-sm text-muted-foreground">{label}</Label>
+      <p className="text-base text-foreground group-hover:text-primary transition-colors leading-relaxed">
         {value || <span className="text-muted-foreground italic">Click to add</span>}
       </p>
     </div>

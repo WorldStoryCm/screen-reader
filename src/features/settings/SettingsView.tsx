@@ -67,15 +67,15 @@ export default function SettingsView() {
 
   return (
     <div className="p-6 max-w-md mx-auto">
-      <h2 className="text-lg font-semibold text-foreground mb-6">Settings</h2>
+      <h2 className="text-base font-semibold text-foreground mb-6">Settings</h2>
 
       <div className="space-y-6">
         {/* Theme */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
             <Label>Theme</Label>
-            <p className="text-xs text-muted-foreground">
-              Switch between dark and light appearance
+            <p className="text-sm text-muted-foreground">
+              Dark or light appearance
             </p>
           </div>
           <Switch
@@ -103,7 +103,7 @@ export default function SettingsView() {
 
         {/* Default preset */}
         <div className="space-y-1.5">
-          <Label>Default OCR Preset</Label>
+          <Label>Default OCR preset</Label>
           <Select
             value={settings.default_preset}
             onValueChange={(val) => {
@@ -127,11 +127,11 @@ export default function SettingsView() {
         <Separator />
 
         {/* Auto copy */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="space-y-0.5">
             <Label>Auto-copy after OCR</Label>
-            <p className="text-xs text-muted-foreground">
-              Automatically copy text to clipboard after capture
+            <p className="text-sm text-muted-foreground">
+              Copy recognized text to clipboard automatically
             </p>
           </div>
           <Switch
@@ -147,7 +147,7 @@ export default function SettingsView() {
 
         {/* OCR Panel Position */}
         <div className="space-y-1.5">
-          <Label>OCR Panel Position</Label>
+          <Label>Results panel position</Label>
           <Select
             value={settings.ocr_panel_side}
             onValueChange={(val) => {
@@ -165,14 +165,14 @@ export default function SettingsView() {
               <SelectItem value="right">Right</SelectItem>
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground">
-            Side panel for OCR results on the capture screen
+          <p className="text-sm text-muted-foreground">
+            Which side to show OCR results on the capture screen
           </p>
         </div>
       </div>
 
       {saved && (
-        <p className="mt-4 text-sm text-emerald-400">Settings saved</p>
+        <p className="mt-4 text-sm text-emerald-400 transition-opacity">Saved</p>
       )}
     </div>
   );
@@ -246,28 +246,28 @@ function HotkeyRecorder({ value, onChange }: { value: string; onChange: (hotkey:
 
   return (
     <div className="space-y-1.5">
-      <Label>Global Hotkey</Label>
+      <Label>Capture hotkey</Label>
       <div className="flex gap-2 items-center">
         <button
           ref={inputRef}
           onClick={() => { setRecording(true); setError(null); }}
-          className={`flex-1 px-3 py-2 text-left rounded-md text-sm transition-colors ${
+          className={`flex-1 px-3 py-2 text-left rounded-md text-sm font-mono transition-all ${
             recording
-              ? "bg-primary/20 border-2 border-primary text-primary animate-pulse"
-              : "bg-background border border-input text-foreground"
+              ? "bg-primary/10 border-2 border-primary text-primary animate-pulse"
+              : "bg-input border border-border text-foreground hover:border-ring"
           }`}
         >
-          {recording ? "Press keys..." : value}
+          {recording ? "Press keys\u2026" : value}
         </button>
         {recording && (
-          <Button variant="secondary" size="sm" onClick={() => setRecording(false)}>
+          <Button variant="ghost" size="sm" onClick={() => setRecording(false)}>
             Cancel
           </Button>
         )}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <p className="text-xs text-muted-foreground">
-        Click to record a new shortcut (Esc to cancel)
+      <p className="text-sm text-muted-foreground">
+        Click to record a new shortcut · Esc to cancel
       </p>
     </div>
   );

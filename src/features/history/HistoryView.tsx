@@ -63,7 +63,6 @@ export default function HistoryView() {
   void _setFilterTag;
   const [loading, setLoading] = useState(true);
 
-  // Edit states
   const [editNote, setEditNote] = useState("");
   const [editTags, setEditTags] = useState<string[]>([]);
   const [rerunPreset, setRerunPreset] = useState("");
@@ -188,7 +187,7 @@ export default function HistoryView() {
   }
 
   function truncate(text: string, maxLen: number) {
-    return text.length <= maxLen ? text : text.slice(0, maxLen) + "...";
+    return text.length <= maxLen ? text : text.slice(0, maxLen) + "\u2026";
   }
 
   const dateGroups = groupByDate(captures);
@@ -196,7 +195,7 @@ export default function HistoryView() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        Loading...
+        Loading history...
       </div>
     );
   }
@@ -205,17 +204,19 @@ export default function HistoryView() {
     <div className="flex h-full">
       {/* Left: list */}
       <div className="w-1/2 min-w-0 border-r border-border flex flex-col">
-        {/* Capture list grouped by date */}
         <ScrollArea className="flex-1">
           {captures.length === 0 ? (
-            <div className="p-4 text-muted-foreground text-sm text-center">
-              {filterTag ? `No captures tagged "${filterTag}"` : "No captures yet"}
+            <div className="flex flex-col items-center justify-center py-16 px-4 gap-2">
+              <span className="text-muted-foreground/30 text-3xl">&#x23F0;</span>
+              <p className="text-sm text-muted-foreground text-center">
+                {filterTag ? `No captures tagged "${filterTag}"` : "Capture your first screenshot to see it here"}
+              </p>
             </div>
           ) : (
             dateGroups.map((group) => (
               <div key={group.label}>
-                <div className="px-3 py-1.5 border-b border-border sticky top-0 z-10 bg-card">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                <div className="px-3 py-1.5 border-b border-border sticky top-0 z-10 bg-card/95 backdrop-blur-sm">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     {group.label}
                   </span>
                 </div>
@@ -223,38 +224,38 @@ export default function HistoryView() {
                   <div
                     key={capture.id}
                     onClick={() => selectCapture(capture)}
-                    className={`group p-3 border-b border-border cursor-pointer transition-colors ${
+                    className={`group px-3 py-2.5 border-b border-border cursor-pointer transition-colors ${
                       selected?.id === capture.id
                         ? "bg-accent"
-                        : "hover:bg-accent/50"
+                        : "hover:bg-accent/40"
                     }`}
                   >
-                    <div className="flex justify-between items-start mb-1">
-                      <span className="text-xs text-muted-foreground">
+                    <div className="flex justify-between items-start mb-0.5">
+                      <span className="text-xs text-muted-foreground font-mono">
                         {formatTime(capture.created_at)}
                       </span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground/60">
+                        <span className="text-xs text-muted-foreground/50 font-mono">
                           {capture.confidence.toFixed(0)}%
                         </span>
                         <button
                           onClick={(e) => handleDelete(capture.id, e)}
-                          className="text-base px-2 text-destructive opacity-0 group-hover:opacity-100 transition-all"
-                          title="Delete"
+                          className="text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-all text-sm leading-none"
+                          title="Delete capture"
                         >
                           ×
                         </button>
                       </div>
                     </div>
-                    <p className="text-sm text-secondary-foreground leading-relaxed">
+                    <p className="text-base text-secondary-foreground leading-relaxed">
                       {truncate(capture.normalized_text || capture.ocr_text, 80)}
                     </p>
                     {capture.tags.length > 0 && (
-                      <div className="flex gap-1 mt-1 overflow-x-auto scrollbar-visible">
+                      <div className="flex gap-1 mt-1.5 overflow-x-auto scrollbar-visible">
                         {capture.tags.map((t) => (
                           <span
                             key={t}
-                            className="text-xs px-1.5 py-0.5 bg-primary/20 text-primary rounded-full whitespace-nowrap shrink-0"
+                            className="text-sm px-2 py-0.5 bg-primary/15 text-primary rounded-full whitespace-nowrap shrink-0"
                           >
                             {t}
                           </span>
@@ -272,10 +273,10 @@ export default function HistoryView() {
       {/* Right: detail */}
       <div className="w-1/2 overflow-y-auto">
         {selected ? (
-          <div className="p-4 space-y-4">
+          <div className="p-5 space-y-5">
             {/* Header */}
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">
+              <span className="text-sm text-muted-foreground font-mono">
                 {(() => {
                   const secs = parseFloat(selected.created_at);
                   return isNaN(secs) ? selected.created_at : new Date(secs * 1000).toLocaleString();
@@ -288,11 +289,12 @@ export default function HistoryView() {
                     writeText(selected.normalized_text || selected.ocr_text)
                   }
                 >
-                  Copy
+                  Copy text
                 </Button>
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="sm"
+                  className="text-destructive hover:text-destructive"
                   onClick={() => handleDelete(selected.id)}
                 >
                   Delete
@@ -303,31 +305,33 @@ export default function HistoryView() {
             <Separator />
 
             {/* OCR text */}
-            <div>
-              <div className="flex gap-2 mb-2">
+            <div className="space-y-2">
+              <div className="flex gap-1">
                 <Button
-                  variant={!showTokens ? "default" : "secondary"}
+                  variant={!showTokens ? "default" : "ghost"}
                   size="sm"
+                  className="h-7 text-sm"
                   onClick={() => setShowTokens(false)}
                 >
                   Raw
                 </Button>
                 <Button
-                  variant={showTokens ? "default" : "secondary"}
+                  variant={showTokens ? "default" : "ghost"}
                   size="sm"
+                  className="h-7 text-sm"
                   onClick={() => setShowTokens(true)}
                 >
                   Tokens
                 </Button>
               </div>
-              <div className="bg-card rounded-md p-3 border border-border">
+              <div className="bg-card rounded-lg p-3 border border-border">
                 {showTokens ? (
                   <TokenizedText
                     text={selected.normalized_text || selected.ocr_text}
                     captureId={selected.id}
                   />
                 ) : (
-                  <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed font-mono">
+                  <p className="text-base text-foreground whitespace-pre-wrap leading-relaxed font-mono">
                     {selected.normalized_text || selected.ocr_text || "(empty)"}
                   </p>
                 )}
@@ -336,7 +340,7 @@ export default function HistoryView() {
 
             {/* OCR retry */}
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground">Rerun OCR with preset</Label>
+              <Label className="text-muted-foreground text-sm">Re-read with preset</Label>
               <div className="flex gap-2">
                 <Select value={rerunPreset} onValueChange={setRerunPreset}>
                   <SelectTrigger className="flex-1">
@@ -356,21 +360,21 @@ export default function HistoryView() {
                   onClick={handleRerunOcr}
                   disabled={rerunning}
                 >
-                  {rerunning ? "Running..." : "Rerun"}
+                  {rerunning ? "Reading..." : "Rerun"}
                 </Button>
               </div>
             </div>
 
             {/* Tags */}
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground">Tags</Label>
-              <div className="flex gap-1 overflow-x-auto scrollbar-visible pb-1">
+              <Label className="text-muted-foreground text-sm">Tags</Label>
+              <div className="flex gap-1.5 flex-wrap">
                 {allTags.map((tag) => (
                   <Button
                     key={tag.id}
-                    variant={editTags.includes(tag.name) ? "default" : "secondary"}
+                    variant={editTags.includes(tag.name) ? "default" : "ghost"}
                     size="sm"
-                    className="h-7 text-xs shrink-0"
+                    className="h-8 text-sm"
                     onClick={() => toggleTag(tag.name)}
                   >
                     {tag.name}
@@ -391,27 +395,28 @@ export default function HistoryView() {
 
             {/* Note */}
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground">Note</Label>
+              <Label className="text-muted-foreground text-sm">Note</Label>
               <Textarea
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
                 onBlur={handleSaveNote}
                 rows={3}
                 className="resize-none"
-                placeholder="Add a note..."
+                placeholder="Add context or notes..."
               />
             </div>
 
             {/* Meta */}
-            <div className="text-xs text-muted-foreground/60 space-y-0.5">
-              <p>Preset: {selected.preprocess_preset}</p>
-              <p>Engine: {selected.ocr_engine}</p>
-              <p>Confidence: {selected.confidence.toFixed(1)}%</p>
+            <div className="text-xs text-muted-foreground/50 space-y-0.5 font-mono">
+              <p>preset: {selected.preprocess_preset}</p>
+              <p>engine: {selected.ocr_engine}</p>
+              <p>confidence: {selected.confidence.toFixed(1)}%</p>
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Select a capture to view details
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <span className="text-muted-foreground/20 text-3xl">&#x2190;</span>
+            <p className="text-sm text-muted-foreground">Select a capture to view details</p>
           </div>
         )}
       </div>

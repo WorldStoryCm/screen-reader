@@ -1,95 +1,216 @@
 @import "tailwindcss";
 
-/* ── shadcn/ui theme tokens ── */
-/* Dark theme (default) - amber accent */
+/* ── Warm Study Desk — Design System ──
+   Dark: warm dimly-lit study room
+   Light: cream notebook under warm lamplight
+   Accent: amber (study lamp glow)
+   Neutrals carry warmth but TEXT stays high-contrast
+*/
+
+/* ── Dark theme (default) ── */
 @theme {
-  --color-background: #0a0a0a;
-  --color-foreground: #fafafa;
+  --font-sans: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --color-card: #171717;
-  --color-card-foreground: #fafafa;
+  --color-background: oklch(13% 0.01 65);
+  --color-foreground: oklch(96% 0.003 75);
 
-  --color-popover: #262626;
-  --color-popover-foreground: #fafafa;
+  --color-card: oklch(17% 0.012 65);
+  --color-card-foreground: oklch(96% 0.003 75);
 
-  --color-primary: #d97706;
-  --color-primary-foreground: #fff;
+  --color-popover: oklch(21% 0.015 65);
+  --color-popover-foreground: oklch(96% 0.003 75);
 
-  --color-secondary: #262626;
-  --color-secondary-foreground: #e5e5e5;
+  --color-primary: oklch(72% 0.16 70);
+  --color-primary-foreground: oklch(99% 0.005 75);
 
-  --color-muted: #262626;
-  --color-muted-foreground: #a3a3a3;
+  --color-secondary: oklch(20% 0.012 65);
+  --color-secondary-foreground: oklch(90% 0.005 75);
 
-  --color-accent: #292524;
-  --color-accent-foreground: #e5e5e5;
+  --color-muted: oklch(20% 0.01 65);
+  --color-muted-foreground: oklch(68% 0.01 70);
 
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #fff;
+  --color-accent: oklch(22% 0.025 65);
+  --color-accent-foreground: oklch(92% 0.005 75);
 
-  --color-border: #404040;
-  --color-input: #404040;
-  --color-ring: #d97706;
+  --color-destructive: oklch(55% 0.2 25);
+  --color-destructive-foreground: oklch(98% 0.005 25);
 
-  --radius: 0.5rem;
+  --color-border: oklch(25% 0.015 65);
+  --color-input: oklch(22% 0.012 65);
+  --color-ring: oklch(72% 0.14 70);
+
+  --color-canvas: oklch(8% 0.005 65);
+
+  --color-source: oklch(70% 0.14 160);
+  --color-source-bg: oklch(25% 0.04 160);
+  --color-source-type: oklch(60% 0.1 160);
+
+  --color-category: oklch(72% 0.12 300);
+  --color-category-bg: oklch(25% 0.04 300);
+
+  /* Token highlight colors */
+  --color-token-hover-bg: oklch(65% 0.15 70 / 0.25);
+  --color-token-hover-text: oklch(85% 0.08 70);
+  --color-token-hover-border: oklch(65% 0.15 70);
+  --color-token-active-bg: oklch(65% 0.15 70 / 0.35);
+  --color-token-default-text: oklch(85% 0.01 75);
+  --color-token-default-hover-bg: oklch(30% 0.015 65);
+
+  /* Level badge colors */
+  --color-level1-bg: oklch(25% 0.01 65);
+  --color-level1-text: oklch(70% 0.01 70);
+  --color-level2-bg: oklch(35% 0.08 70 / 0.4);
+  --color-level2-text: oklch(82% 0.08 70);
+  --color-level3-bg: oklch(40% 0.1 90 / 0.35);
+  --color-level3-text: oklch(85% 0.08 90);
+  --color-level4-bg: oklch(35% 0.08 160 / 0.35);
+  --color-level4-text: oklch(82% 0.08 160);
+  --color-level5-bg: oklch(32% 0.07 145 / 0.35);
+  --color-level5-text: oklch(80% 0.07 145);
+
+  --radius: 0.625rem;
+
+  /* Warm-tinted neutrals — surfaces warm, text stays readable */
+  --color-neutral-50: oklch(97% 0.003 75);
+  --color-neutral-100: oklch(94% 0.005 75);
+  --color-neutral-200: oklch(88% 0.006 75);
+  --color-neutral-300: oklch(75% 0.008 72);
+  --color-neutral-400: oklch(64% 0.01 70);
+  --color-neutral-500: oklch(54% 0.012 70);
+  --color-neutral-600: oklch(42% 0.015 68);
+  --color-neutral-700: oklch(30% 0.015 65);
+  --color-neutral-800: oklch(22% 0.012 65);
+  --color-neutral-900: oklch(16% 0.01 65);
+  --color-neutral-950: oklch(11% 0.008 65);
 }
 
-/* Light theme overrides */
+/* ── Light theme ── */
 .light {
-  --color-background: #fafafa;
-  --color-foreground: #0a0a0a;
+  --color-background: oklch(97% 0.008 80);
+  --color-foreground: oklch(15% 0.01 65);
 
-  --color-card: #fff;
-  --color-card-foreground: #0a0a0a;
+  --color-card: oklch(99% 0.005 80);
+  --color-card-foreground: oklch(15% 0.01 65);
 
-  --color-popover: #fff;
-  --color-popover-foreground: #0a0a0a;
+  --color-popover: oklch(99% 0.005 80);
+  --color-popover-foreground: oklch(15% 0.01 65);
 
-  --color-primary: #d97706;
-  --color-primary-foreground: #fff;
+  --color-primary: oklch(62% 0.19 70);
+  --color-primary-foreground: oklch(99% 0.005 75);
 
-  --color-secondary: #f5f5f5;
-  --color-secondary-foreground: #171717;
+  --color-secondary: oklch(93% 0.01 80);
+  --color-secondary-foreground: oklch(22% 0.01 65);
 
-  --color-muted: #f5f5f5;
-  --color-muted-foreground: #737373;
+  --color-muted: oklch(94% 0.008 80);
+  --color-muted-foreground: oklch(38% 0.015 70);
 
-  --color-accent: #fef3c7;
-  --color-accent-foreground: #171717;
+  --color-accent: oklch(95% 0.02 75);
+  --color-accent-foreground: oklch(18% 0.01 65);
 
-  --color-destructive: #dc2626;
-  --color-destructive-foreground: #fff;
+  --color-destructive: oklch(52% 0.22 25);
+  --color-destructive-foreground: oklch(98% 0.005 25);
 
-  --color-border: #e5e5e5;
-  --color-input: #e5e5e5;
-  --color-ring: #d97706;
+  --color-border: oklch(88% 0.012 75);
+  --color-input: oklch(88% 0.012 75);
+  --color-ring: oklch(62% 0.17 70);
 
-  /* Invert neutral palette for light mode */
-  --color-neutral-50: #0a0a0a;
-  --color-neutral-100: #171717;
-  --color-neutral-200: #262626;
-  --color-neutral-300: #404040;
-  --color-neutral-400: #525252;
-  --color-neutral-500: #737373;
-  --color-neutral-600: #a3a3a3;
-  --color-neutral-700: #d4d4d4;
-  --color-neutral-800: #e5e5e5;
-  --color-neutral-900: #f5f5f5;
-  --color-neutral-950: #fafafa;
+  --color-canvas: oklch(92% 0.008 80);
+
+  --color-source: oklch(38% 0.12 160);
+  --color-source-bg: oklch(92% 0.03 160);
+  --color-source-type: oklch(48% 0.08 160);
+
+  --color-category: oklch(42% 0.12 300);
+  --color-category-bg: oklch(92% 0.03 300);
+
+  /* Token highlight colors */
+  --color-token-hover-bg: oklch(72% 0.16 70 / 0.25);
+  --color-token-hover-text: oklch(30% 0.08 70);
+  --color-token-hover-border: oklch(62% 0.16 70);
+  --color-token-active-bg: oklch(72% 0.16 70 / 0.35);
+  --color-token-default-text: oklch(20% 0.01 65);
+  --color-token-default-hover-bg: oklch(92% 0.01 75);
+
+  /* Level badge colors */
+  --color-level1-bg: oklch(90% 0.005 75);
+  --color-level1-text: oklch(40% 0.01 70);
+  --color-level2-bg: oklch(88% 0.06 70 / 0.5);
+  --color-level2-text: oklch(38% 0.1 70);
+  --color-level3-bg: oklch(88% 0.06 90 / 0.5);
+  --color-level3-text: oklch(38% 0.1 90);
+  --color-level4-bg: oklch(88% 0.06 160 / 0.5);
+  --color-level4-text: oklch(30% 0.1 160);
+  --color-level5-bg: oklch(88% 0.06 145 / 0.5);
+  --color-level5-text: oklch(30% 0.08 145);
+
+  --color-neutral-50: oklch(11% 0.008 65);
+  --color-neutral-100: oklch(16% 0.01 65);
+  --color-neutral-200: oklch(22% 0.012 65);
+  --color-neutral-300: oklch(30% 0.015 65);
+  --color-neutral-400: oklch(42% 0.015 68);
+  --color-neutral-500: oklch(54% 0.012 70);
+  --color-neutral-600: oklch(64% 0.01 70);
+  --color-neutral-700: oklch(75% 0.008 72);
+  --color-neutral-800: oklch(88% 0.006 75);
+  --color-neutral-900: oklch(94% 0.005 75);
+  --color-neutral-950: oklch(97% 0.003 75);
 }
 
-/* Force scrollbars to always be visible on macOS */
+/* ── Base styles ── */
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.5;
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
+
+/* ── Focus rings ── */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* ── Default transitions ── */
+button, a, input, select, textarea, [role="button"] {
+  transition-property: color, background-color, border-color, opacity, box-shadow;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* ── Selection color ── */
+::selection {
+  background: oklch(72% 0.14 70 / 0.3);
+  color: inherit;
+}
+
+/* ── Scrollbar ── */
 .scrollbar-visible::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 .scrollbar-visible::-webkit-scrollbar-track {
-  background: var(--color-card);
+  background: transparent;
 }
 .scrollbar-visible::-webkit-scrollbar-thumb {
-  background: var(--color-muted-foreground);
-  border-radius: 5px;
+  background: var(--color-border);
+  border-radius: 999px;
 }
 .scrollbar-visible::-webkit-scrollbar-thumb:hover {
-  background: var(--color-foreground);
+  background: var(--color-muted-foreground);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

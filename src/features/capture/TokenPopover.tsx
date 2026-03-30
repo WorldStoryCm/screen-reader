@@ -28,7 +28,6 @@ export default function TokenPopover({
   const [showCreate, setShowCreate] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Create card form
   const [reading, setReading] = useState("");
   const [translation, setTranslation] = useState("");
   const [meaning, setMeaning] = useState("");
@@ -43,7 +42,6 @@ export default function TokenPopover({
       .catch(() => setLoading(false));
   }, [token.surface]);
 
-  // Close on click outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -54,7 +52,6 @@ export default function TokenPopover({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  // Close on Escape
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -104,73 +101,68 @@ export default function TokenPopover({
     }
   }
 
-  // Position popover below the token, keep on screen
   const style: React.CSSProperties = {
     position: "fixed",
-    left: Math.min(Math.max(4, anchorRect.left - 140), window.innerWidth - 270),
-    top: Math.min(anchorRect.bottom + 4, window.innerHeight - 200),
+    left: Math.min(Math.max(4, anchorRect.left - 140), window.innerWidth - 320),
+    top: Math.min(anchorRect.bottom + 6, window.innerHeight - 200),
     zIndex: 100,
   };
 
   return (
-    <div ref={ref} style={style} className="w-[320px] bg-popover border border-border rounded-lg shadow-xl">
+    <div ref={ref} style={style} className="w-[320px] bg-popover border border-border rounded-xl shadow-2xl overflow-hidden">
       {loading ? (
-        <div className="p-3 text-sm text-muted-foreground">Loading...</div>
+        <div className="p-4 text-sm text-muted-foreground">Looking up\u2026</div>
       ) : card && !showCreate ? (
-        /* Existing card view */
-        <div className="p-3 space-y-2">
-          <div className="flex justify-between items-start">
-            <span className="text-sm font-medium text-foreground">{card.jp_text}</span>
-          </div>
+        <div className="p-4 space-y-3">
+          <span className="text-xl font-semibold text-foreground">{card.jp_text}</span>
           {card.reading && (
-            <p className="text-xs text-muted-foreground">{card.reading}</p>
+            <p className="text-sm text-muted-foreground">{card.reading}</p>
           )}
           {card.translation && (
-            <p className="text-xs text-foreground">{card.translation}</p>
+            <p className="text-base text-foreground">{card.translation}</p>
           )}
           {card.meaning && (
-            <p className="text-xs text-muted-foreground">{card.meaning}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{card.meaning}</p>
           )}
           {card.note && (
-            <p className="text-[11px] text-muted-foreground/70 italic">{card.note}</p>
+            <p className="text-sm text-muted-foreground/60 italic">{card.note}</p>
           )}
 
-          {/* Level selector */}
-          <p className="text-[11px] text-muted-foreground">Learned level</p>
-          <div className="flex gap-1 items-center">
-            {LEVELS.map((lv) => {
-              const currentLevel = getCardLevel(card.status);
-              const isActive = lv === currentLevel;
-              return (
-                <Button
-                  key={lv}
-                  variant="secondary"
-                  size="sm"
-                  className={`flex-1 h-7 text-[11px] font-medium ${
-                    isActive ? LEVEL_COLORS[lv] : "text-muted-foreground"
-                  }`}
-                  onClick={() => handleLevelChange(lv)}
-                  title={LEVEL_LABELS[lv]}
-                >
-                  {LEVEL_ROMAN[lv]}
-                </Button>
-              );
-            })}
+          <div className="space-y-1.5">
+            <p className="text-sm text-muted-foreground/60">Level</p>
+            <div className="flex gap-1 items-center">
+              {LEVELS.map((lv) => {
+                const currentLevel = getCardLevel(card.status);
+                const isActive = lv === currentLevel;
+                return (
+                  <Button
+                    key={lv}
+                    variant="ghost"
+                    size="sm"
+                    className={`flex-1 h-8 text-sm font-medium ${
+                      isActive ? LEVEL_COLORS[lv] : "text-muted-foreground"
+                    }`}
+                    onClick={() => handleLevelChange(lv)}
+                    title={LEVEL_LABELS[lv]}
+                  >
+                    {LEVEL_ROMAN[lv]}
+                  </Button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex gap-1.5 pt-0.5">
+          <div className="flex gap-1.5 pt-1">
             <Button variant="secondary" size="sm" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
             </Button>
           </div>
         </div>
       ) : showCreate ? (
-        /* Create card form */
-        <div className="p-3 space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-medium text-secondary-foreground">
-              New card: <span className="text-primary">{token.surface}</span>
-            </span>
+        <div className="p-4 space-y-2.5">
+          <div>
+            <span className="text-sm text-muted-foreground">New card</span>
+            <span className="ml-2 text-xl font-semibold text-primary">{token.surface}</span>
           </div>
           <Input
             value={reading}
@@ -189,29 +181,29 @@ export default function TokenPopover({
             placeholder="Meaning / explanation"
             onKeyDown={(e) => e.key === "Enter" && (translation || meaning) && handleCreateCard()}
           />
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 pt-1">
             <Button
               size="sm"
               onClick={handleCreateCard}
               disabled={saving || (!reading && !translation && !meaning)}
             >
-              {saving ? "Saving..." : "Save Card"}
+              {saving ? "Saving\u2026" : "Create card"}
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => setShowCreate(false)}>
+            <Button variant="ghost" size="sm" onClick={() => setShowCreate(false)}>
               Cancel
             </Button>
           </div>
         </div>
       ) : (
-        /* No card — show actions */
-        <div className="p-3 space-y-4">
-          <p className="text-sm font-medium text-foreground">{token.surface}</p>
+        <div className="p-4 space-y-3">
+          <p className="text-xl font-semibold text-foreground">{token.surface}</p>
+          <p className="text-sm text-muted-foreground">No card found for this word</p>
           <div className="flex gap-2">
             <Button variant="secondary" size="sm" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
             </Button>
             <Button size="sm" onClick={() => setShowCreate(true)}>
-              + Create Card
+              Create card
             </Button>
           </div>
         </div>
